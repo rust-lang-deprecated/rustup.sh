@@ -695,20 +695,20 @@ runtest save_with_date
 
 out_of_date_metadata() {
     try rustup.sh --prefix="$TEST_PREFIX" --save
-    echo "bogus" > "$RUSTUP_HOME/version"
+    echo "bogus" > "$RUSTUP_HOME/rustup-version"
     expect_output_ok "rustup metadata is out of date" rustup.sh --prefix="$TEST_PREFIX" --save
 }
 runtest out_of_date_metadata
 
 remove_metadata_if_not_save() {
     try rustup.sh --prefix="$TEST_PREFIX"
-    try test ! -e "$RUSTUP_HOME/version"
+    try test ! -e "$RUSTUP_HOME/rustup-version"
 }
 runtest remove_metadata_if_not_save
 
 leave_metadata_if_save() {
     try rustup.sh --prefix="$TEST_PREFIX" --save
-    try test -e "$RUSTUP_HOME/version"
+    try test -e "$RUSTUP_HOME/rustup-version"
 }
 runtest leave_metadata_if_save
 

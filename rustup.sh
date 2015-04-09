@@ -49,15 +49,6 @@ set_globals() {
     # The directory on the server containing the dist artifacts
     rust_dist_dir=dist
 
-    # Useful values pulled from the name of the invoked process
-    rustup_cmd="$0"
-    cmd_dirname="$(dirname "$0")"
-    cmd_basename="$(basename "$0")"
-    abs_cmd_basename="$(cd "$cmd_dirname" && pwd)"
-    assert_nz "$cmd_dirname" "cmd_dirname"
-    assert_nz "$cmd_basename" "cmd_basename"
-    assert_nz "$abs_cmd_basename" "abs_cmd_basename"
-
     default_channel="beta"
 
     # Set up the rustup data dir
@@ -68,10 +59,9 @@ set_globals() {
     default_prefix="${RUSTUP_PREFIX-/usr/local}"
 
     # Data locations
-    version_file="$rustup_dir/version"
+    version_file="$rustup_dir/rustup-version"
     manifests_dir="$rustup_dir/manifests"
     installer_dir="$rustup_dir/installers"
-    channel_sums_dir="$rustup_dir/channel-sums"
     temp_dir="$rustup_dir/tmp"
     dl_dir="$rustup_dir/dl"
 
@@ -264,9 +254,10 @@ handle_command_line_args() {
     # afterward if the user doesn't pass --save. *If* ~/.rustup
     # already exists and they *did not* pass --save, we'll pretend
     # they did anyway to avoid deleting their data.
+    local _preserve_rustup_dir="$_save"
     if [ "$_save" = false -a -e "$version_file" ]; then
 	verbose_say "rustup home exists but not asked to save. saving anyway"
-	_save=true
+	_preserve_rustup_dir=true
     fi
 
     # Make sure our data directory exists and is the right format
@@ -293,7 +284,7 @@ handle_command_line_args() {
 
     # Remove the temporary directory
     # FIXME: This will not be removed if an error occurred earlier
-    if [ "$_save" = false ]; then
+    if [ "$_preserve_rustup_dir" = false ]; then
 	verbose_say "removing rustup home $rustup_dir"
 	rm -Rf "$rustup_dir"
 	# Ignore errors
