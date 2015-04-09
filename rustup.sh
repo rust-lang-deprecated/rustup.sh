@@ -9,6 +9,13 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+# Coding conventions:
+#
+# * globals are `like_this`.
+# * locals are `_like_this`.
+# * exported values are `LIKE_THIS`.
+# * out-of-band return values are put into `RETVAL`.
+
 set -u
 
 main() {
