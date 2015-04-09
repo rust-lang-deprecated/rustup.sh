@@ -64,15 +64,6 @@ set_globals() {
 	rustup_dir_already_exists=true
     fi
 
-    # Make sure our home dir is absolute. Once multirust is invoked, this
-    # variables is carried through recursive toolchain invocations. If
-    # some tool like Cargo changes directories, we want to be sure we can
-    # find our home dir again.
-    mkdir -p "$rustup_dir"
-    need_ok "failed to create home directory"
-    rustup_dir="$(cd "$rustup_dir" && pwd)"
-    assert_nz "$rustup_dir" "rustup_dir"
-
     # Data locations
     version_file="$rustup_dir/version"
     manifests_dir="$rustup_dir/manifests"
@@ -204,12 +195,14 @@ Mve696B5tlHyc1KxjHR6w9GRsh4=
     fi
 }
 
-# Verifies that ~/.rustup exists and uses the correct format
-check_metadata_version() {
+# Ensuresthat ~/.rustup exists and uses the correct format
+initialize_metadata() {
     verbose_say "checking metadata version"
 
-    test -e "$rustup_dir"
-    need_ok "rustup_dir must exist"
+    mkdir -p "$rustup_dir"
+    need_ok "failed to create home directory"
+    rustup_dir="$(cd "$rustup_dir" && pwd)"
+    assert_nz "$rustup_dir" "rustup_dir"
 
     if [ ! -e "$version_file" ]; then
 	verbose_say "writing metadata version $metadata_version"
@@ -257,12 +250,13 @@ handle_command_line_args() {
     # afterward if the user doesn't pass --save. *If* ~/.rustup
     # already exists and they *did not* pass --save, we'll pretend
     # they did anyway to avoid deleting their data.
-    if [ "$_save" = false -a -e "$rustup_dir" ]; then
+    if [ "$_save" = false -a -e "$version_file" ]; then
+	verbose_say "rustup home exists but not asked to save. saving anyway"
 	_save=true
     fi
 
-    # Make sure the metadata is compatible
-    check_metadata_version
+    # Make sure our data directory exists and is the right format
+    initialize_metadata
 
     local _toolchain="$_channel"
     if [ -n "$_date" ]; then
@@ -279,8 +273,11 @@ handle_command_line_args() {
     # Remove the temporary directory
     # FIXME: This will not be removed if an error occurred earlier
     if [ "$_save" = false ]; then
+	verbose_say "removing rustup home $rustup_dir"
 	rm -Rf "$rustup_dir"
 	# Ignore errors
+    else
+	verbose_say "leaving rustup home $rustup_dir"
     fi
 }
 
@@ -314,18 +311,6 @@ update_toolchain() {
     fi
 
     install_toolchain_from_dist "$_toolchain" "$_prefix"
-}
-
-install_toolchain_if_not_installed() {
-    local _toolchain="$1"
-
-    is_toolchain_installed "$_toolchain"
-    if [ "$RETVAL" = true ]; then
-	say "using existing install for '$_toolchain'"
-	return 0
-    fi
-
-    update_toolchain "$_toolchain"
 }
 
 install_toolchain_from_dist() {

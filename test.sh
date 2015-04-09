@@ -654,6 +654,11 @@ basic_uninstall() {
 }
 runtest basic_uninstall
 
+uninstall_not_installed() {
+    expect_output_ok "no toolchain installed" rustup.sh --prefix="$TEST_PREFIX" --uninstall
+}
+runtest uninstall_not_installed
+
 with_date() {
     try rustup.sh --prefix="$TEST_PREFIX" --date=2015-01-01
     expect_output_ok "hash-nightly-1" "$TEST_PREFIX/bin/rustc" --version
@@ -677,17 +682,21 @@ save_with_date() {
 runtest save_with_date
 
 out_of_date_metadata() {
-    echo
+    try rustup.sh --prefix="$TEST_PREFIX" --save
+    echo "bogus" > "$RUSTUP_HOME/version"
+    expect_output_ok "rustup metadata is out of date" rustup.sh --prefix="$TEST_PREFIX" --save
 }
 runtest out_of_date_metadata
 
 remove_metadata_if_not_save() {
-    echo
+    try rustup.sh --prefix="$TEST_PREFIX"
+    try test ! -e "$RUSTUP_HOME/version"
 }
 runtest remove_metadata_if_not_save
 
 leave_metadata_if_save() {
-    echo
+    try rustup.sh --prefix="$TEST_PREFIX" --save
+    try test -e "$RUSTUP_HOME/version"
 }
 runtest leave_metadata_if_save
 
@@ -697,5 +706,10 @@ obey_RUST_PREFIX() {
 runtest obey_RUST_PREFIX
 
 reuse_cached_dated_installer() {
+    echo
 }
 runtest reuse_cached_dated_installer
+
+echo
+echo "SUCCESS"
+echo
