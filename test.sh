@@ -701,7 +701,10 @@ leave_metadata_if_save() {
 runtest leave_metadata_if_save
 
 obey_RUST_PREFIX() {
-    echo
+    export RUSTUP_PREFIX="$TEST_PREFIX"
+    try rustup.sh
+    try test -e "$TEST_PREFIX/bin/rustc"
+    unset RUSTUP_PREFIX
 }
 runtest obey_RUST_PREFIX
 
@@ -709,6 +712,19 @@ reuse_cached_dated_installer() {
     echo
 }
 runtest reuse_cached_dated_installer
+
+install_to_prefix_that_does_not_exist() {
+    echo
+}
+runtest install_to_prefix_that_does_not_exist
+
+suspicious_RUSTUP_HOME() {
+    local _old_rustup_home="$RUSTUP_HOME"
+    export RUSTUP_HOME="$TMP_DIR"
+    expect_output_fail "rustup home dir exists" rustup.sh
+    export RUSTUP_HOME="$_old_rustup_home"
+}
+runtest suspicious_RUSTUP_HOME
 
 echo
 echo "SUCCESS"

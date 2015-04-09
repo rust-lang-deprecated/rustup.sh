@@ -51,18 +51,14 @@ set_globals() {
     assert_nz "$cmd_basename" "cmd_basename"
     assert_nz "$abs_cmd_basename" "abs_cmd_basename"
 
-    default_channel="nightly"
+    default_channel="beta"
 
     # Set up the rustup data dir
     rustup_dir="${RUSTUP_HOME-$HOME/.rustup}"
     assert_nz "$rustup_dir" "rustup_dir"
 
-    # We need to know whether the user has saved rustup data before, so that we
-    # are sure not to overwrite it if they fail to pass --save.
-    rustup_dir_already_exists=false
-    if [ -e "$rustup_dir" ]; then
-	rustup_dir_already_exists=true
-    fi
+    # Install prefix can be set by the environment
+    default_prefix="${RUSTUP_PREFIX-/usr/local}"
 
     # Data locations
     version_file="$rustup_dir/version"
@@ -199,6 +195,13 @@ Mve696B5tlHyc1KxjHR6w9GRsh4=
 initialize_metadata() {
     verbose_say "checking metadata version"
 
+    # This tries to guard against dumb values of RUSTUP_HOME like ~/ since
+    # rustup will delete the entire directory.
+    if [ -e "$rustup_dir" -a ! -e "$version_file" ]; then
+	say "rustup home dir exists at $rustup_dir but version file $version_file does not."
+	err "this is very suspicous. aborting."
+    fi
+
     mkdir -p "$rustup_dir"
     need_ok "failed to create home directory"
     rustup_dir="$(cd "$rustup_dir" && pwd)"
@@ -225,10 +228,12 @@ initialize_metadata() {
 handle_command_line_args() {
     local _save=false
     local _date=""
-    local _prefix="/usr/local"
+    local _prefix="$default_prefix"
     local _uninstall=false
     local _channel="$default_channel"
 
+    verbose_say "XXX $_prefix"
+    
     for arg in "$@"; do
 	case "$arg" in
 	    --save )
@@ -386,15 +391,8 @@ install_toolchain() {
     verbose_say "installing toolchain to '$_toolchain_dir'"
     say "installing toolchain for '$_toolchain'"
 
-    mkdir -p "$_toolchain_dir"
-    if [ $? != 0 ]; then
-	verbose_say "failed to create toolchain install dir"
-	return 1
-    fi
-
     sh "$_installer_dir/install.sh" --prefix="$_toolchain_dir" --disable-ldconfig
     if [ $? != 0 ]; then
-	rm -R "$_toolchain_dir"
 	verbose_say "failed to install toolchain"
 	return 1
     fi
