@@ -660,19 +660,21 @@ with_date() {
 }
 runtest with_date
 
-save() {
+save_without_date() {
     try rustup.sh --prefix="$TEST_PREFIX" --save
     try test -e "$TEST_PREFIX/bin/rustc"
     try rustup.sh --prefix="$TEST_PREFIX" --save
     try test -e "$TEST_PREFIX/bin/rustc"
 }
-runtest save
+runtest save_without_date
 
 save_with_date() {
     try rustup.sh --prefix="$TEST_PREFIX" --save --date=2015-01-01
     try test -e "$TEST_PREFIX/bin/rustc"
+    try rustup.sh --prefix="$TEST_PREFIX" --save --date=2015-01-01
+    try test -e "$TEST_PREFIX/bin/rustc"
 }
-runtest save
+runtest save_with_date
 
 out_of_date_metadata() {
     echo
@@ -693,3 +695,7 @@ obey_RUST_PREFIX() {
     echo
 }
 runtest obey_RUST_PREFIX
+
+reuse_cached_dated_installer() {
+}
+runtest reuse_cached_dated_installer

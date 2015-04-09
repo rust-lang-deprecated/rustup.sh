@@ -266,7 +266,7 @@ handle_command_line_args() {
 
     local _toolchain="$_channel"
     if [ -n "$_date" ]; then
-	_toolchain="$toolchain-$_date"
+	_toolchain="$_toolchain-$_date"
     fi
 
     # OK, time to do the things
@@ -358,55 +358,24 @@ install_toolchain_from_dist() {
 	exit 1
     fi
 
-    # If the checksum of the available installer is the same as the one we've got
-    # then don't reinstall.
-    local _need_install=true
-    case "$_toolchain" in
-	nightly | beta | stable )
-	    # NB: This 'cat' may fail since channel_sums_dir may not exist
-	    local _existing_checksum="$(cat "$channel_sums_dir/$_toolchain.sha256" 2> /dev/null)"
-	    local _new_checksum="$(cat "$_workdir/$_rust_installer_name.sha256")"
-	    if [ "$_existing_checksum" = "$_new_checksum" ]; then
-		_need_install=false
-	    fi
-	    ;;
-    esac
-
-    if [ "$_need_install" = true ]; then
-	say "downloading rust installer from '$_remote_rust_installer'"
-	download_file_and_sig "$_remote_rust_installer" "$_workdir/$_rust_installer_name"
-	if [ $? != 0 ]; then
-	    rm -R "$_workdir"
-	    exit 1
-	fi
-	check_file_and_sig "$_workdir/$_rust_installer_name"
-	if [ $? != 0 ]; then
-	    rm -R "$_workdir"
-	    exit 1
-	fi
-
-	local _installer_file="$_workdir/$_rust_installer_name"
-	install_toolchain "$_toolchain" "$_installer_file" "$_workdir" "$_prefix"
-	if [ $? != 0 ]; then
-	    rm -R "$_workdir"
-	    err "failed to install toolchain"
-	fi
-    else
-	say "toolchain '$_toolchain' is already up to date"
+    say "downloading rust installer from '$_remote_rust_installer'"
+    download_file_and_sig "$_remote_rust_installer" "$_workdir/$_rust_installer_name"
+    if [ $? != 0 ]; then
+	rm -R "$_workdir"
+	exit 1
+    fi
+    check_file_and_sig "$_workdir/$_rust_installer_name"
+    if [ $? != 0 ]; then
+	rm -R "$_workdir"
+	exit 1
     fi
 
-    # If this is from a release channel save the installer checksum for
-    # use in checking for updates later
-    case "$_toolchain" in
-	nightly | beta | stable )
-	    local _saved_sumfile="$channel_sums_dir/$_toolchain.sha256"
-	    verbose_say "saving checksums to $_saved_sumfile"
-	    mkdir -p "$channel_sums_dir"
-	    need_ok "failed to crate channel sums dir"
-	    cp "$_workdir/$_rust_installer_name.sha256" "$_saved_sumfile"
-	    need_ok "failed to save channel checksums"
-	    ;;
-    esac
+    local _installer_file="$_workdir/$_rust_installer_name"
+    install_toolchain "$_toolchain" "$_installer_file" "$_workdir" "$_prefix"
+    if [ $? != 0 ]; then
+	rm -R "$_workdir"
+	err "failed to install toolchain"
+    fi
 
     rm -R "$_workdir"
     need_ok "couldn't delete workdir"
@@ -1602,7 +1571,7 @@ extract_topic_from_source() {
 # Standard utilities
 
 say() {
-    echo "multirust: $1"
+    echo "rustup: $1"
 }
 
 say_err() {
