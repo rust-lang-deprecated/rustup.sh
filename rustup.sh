@@ -271,10 +271,17 @@ handle_command_line_args() {
     fi
 
     # OK, time to do the things
+    local _succeeded=true
     if [ "$_uninstall" = false ]; then
 	update_toolchain "$_toolchain" "$_prefix"
+	if [ $? != 0 ]; then
+	    _succeeded=false
+	fi
     else
 	remove_toolchain "$_prefix"
+	if [ $? != 0 ]; then
+	    _succeeded=false
+	fi
     fi
 
     # Remove the temporary directory
@@ -285,6 +292,10 @@ handle_command_line_args() {
 	# Ignore errors
     else
 	verbose_say "leaving rustup home $rustup_dir"
+    fi
+
+    if [ "$_succeeded" = false ]; then
+	exit 1
     fi
 }
 
@@ -347,30 +358,34 @@ install_toolchain_from_dist() {
     download_checksum_for "$_remote_rust_installer" "$_workdir/$_rust_installer_name"
     if [ $? != 0 ]; then
 	rm -R "$_workdir"
-	exit 1
+	return 1
     fi
 
     say "downloading rust installer from '$_remote_rust_installer'"
     download_file_and_sig "$_remote_rust_installer" "$_workdir/$_rust_installer_name"
     if [ $? != 0 ]; then
 	rm -R "$_workdir"
-	exit 1
+	return 1
     fi
     check_file_and_sig "$_workdir/$_rust_installer_name"
     if [ $? != 0 ]; then
 	rm -R "$_workdir"
-	exit 1
+	return 1
     fi
 
     local _installer_file="$_workdir/$_rust_installer_name"
     install_toolchain "$_toolchain" "$_installer_file" "$_workdir" "$_prefix"
     if [ $? != 0 ]; then
 	rm -R "$_workdir"
-	err "failed to install toolchain"
+	say_err "failed to install toolchain"
+	return 1
     fi
 
     rm -R "$_workdir"
-    need_ok "couldn't delete workdir"
+    if [ $? != 0 ]; then
+	say_err "couldn't delete workdir"
+	return 1
+    fi
 }
 
 install_toolchain() {
@@ -408,7 +423,10 @@ remove_toolchain() {
     if [ -e "$_uninstall_script" ]; then
 	verbose_say "uninstalling from '$_uninstall_script'"
 	sh "$_uninstall_script"
-	need_ok "failed to remove toolchain"
+	if [ $? != 0 ]; then
+	    say_err "failed to remove toolchain"
+	    return 1;
+	fi
 	say "toolchain '$_toolchain' uninstalled"
     else
 	say "no toolchain installed at '$_prefix'"
@@ -825,11 +843,15 @@ download_checksum_for() {
     mv -f "$_workdir/$_remote_sums_basename" "$_local_sums"
     if [ $? != 0 ]; then
 	rm -R "$_workdir"
-	err "couldn't move '$_workdir/$_remote_sums_basename' to '$_local_sums'"
+	say_err "couldn't move '$_workdir/$_remote_sums_basename' to '$_local_sums'"
+	return 1
     fi
 
     rm -R "$_workdir"
-    need_ok "couldn't delete workdir '$_workdir'"
+    if [ $? != 0 ]; then
+	say_err "couldn't delete workdir '$_workdir'"
+	return 1
+    fi
 }
 
 download_file_and_sig() {
@@ -873,7 +895,11 @@ download_file_and_sig() {
     need_ok "failed to calculate temporary download file name"
     verbose_say "dl dir: $dl_dir/$_dl_dir"
     mkdir -p "$dl_dir/$_dl_dir"
-    need_ok "failed to create temporary download dir"
+    if [ $? != 0 ]; then
+	rm -R "$_workdir"
+	say_err "failed to create temporary download dir"
+	return 1
+    fi
 
     say "downloading '$_remote_name' to '$dl_dir/$_dl_dir'"
     # Invoke curl in a way that will resume if necessary
@@ -889,20 +915,23 @@ download_file_and_sig() {
     if [ $? != 0 ]; then
 	rm -R "$_workdir"
 	rm -R "$dl_dir/$_dl_dir"
-	err "couldn't move file from dl dir to work dir"
+	say_err "couldn't move file from dl dir to work dir"
+	return 1
     fi
 
     rm -R "$dl_dir/$_dl_dir"
     if [ $? != 0 ]; then
 	rm -R "$_workdir"
-	err "failed to remove dl dir"
+	say_err "failed to remove dl dir"
+	return 1
     fi
 
     verbose_say "moving '$_workdir/$_remote_basename' to '$_local_name'"
     mv -f "$_workdir/$_remote_basename" "$_local_name"
     if [ $? != 0 ]; then
 	rm -R "$_workdir"
-	err "couldn't move '$_workdir/$_remote_basename' to '$_local_name'"
+	say_err "couldn't move '$_workdir/$_remote_basename' to '$_local_name'"
+	return 1
     fi
 
     verbose_say "moving '$_workdir/$_remote_sig_basename' to '$_local_sig'"
@@ -910,11 +939,15 @@ download_file_and_sig() {
     if [ $? != 0 ]; then
 	rm "$_local_name"
 	rm -R "$_workdir"
-	err "couldn't move '$_workdir/$_remote_sig_basename' to '$_local_sig'"
+	say_err "couldn't move '$_workdir/$_remote_sig_basename' to '$_local_sig'"
+	return 1
     fi
 
     rm -R "$_workdir"
-    need_ok "couldn't delete workdir '$_workdir'"
+    if [ $? != 0 ]; then
+	say_err "couldn't delete workdir '$_workdir'"
+	return 1
+    fi
 }
 
 check_file_and_sig() {
