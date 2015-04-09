@@ -244,10 +244,12 @@ handle_command_line_args() {
 		;;
 	esac
 
-	if is_value_arg "$arg" "date"; then
-	    _date="$(get_value_arg "$arg")"
-	elif is_value_arg "$arg" "prefix"; then
+	if is_value_arg "$arg" "prefix"; then
 	    _prefix="$(get_value_arg "arg")"
+	elif is_value_arg "$arg" "channel"; then
+	    _channel="$(get_value_arg "arg")"
+	elif is_value_arg "$arg" "date"; then
+	    _date="$(get_value_arg "$arg")"
 	fi
     done
 

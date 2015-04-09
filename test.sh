@@ -661,9 +661,21 @@ runtest uninstall_not_installed
 
 with_date() {
     try rustup.sh --prefix="$TEST_PREFIX" --date=2015-01-01
-    expect_output_ok "hash-nightly-1" "$TEST_PREFIX/bin/rustc" --version
+    expect_output_ok "hash-beta-1" "$TEST_PREFIX/bin/rustc" --version
 }
 runtest with_date
+
+with_channel() {
+    try rustup.sh --prefix="$TEST_PREFIX" --channel=nightly
+    expect_output_ok "hash-nightly-2" "$TEST_PREFIX/bin/rustc" --version
+}
+runtest with_channel
+
+with_channel_and_date() {
+    try rustup.sh --prefix="$TEST_PREFIX" --date=2015-01-01 --channel=nightly
+    expect_output_ok "hash-nightly-1" "$TEST_PREFIX/bin/rustc" --version
+}
+runtest with_channel_and_date
 
 save_without_date() {
     try rustup.sh --prefix="$TEST_PREFIX" --save
@@ -714,7 +726,8 @@ reuse_cached_dated_installer() {
 runtest reuse_cached_dated_installer
 
 install_to_prefix_that_does_not_exist() {
-    echo
+    try rustup.sh --prefix="$TEST_PREFIX/a/b"
+    try test -e "$TEST_PREFIX/a/b/bin/rustc"
 }
 runtest install_to_prefix_that_does_not_exist
 
