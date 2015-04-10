@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/rust-lang/rustup.svg?branch=master)](https://travis-ci.org/rust-lang/rustup)
+
 The rustup.sh is used for installing from Rust release channels.
 
 This script is most often run directly from the web, like so.
