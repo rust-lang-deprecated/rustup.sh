@@ -49,6 +49,12 @@ Install nightly archives.
 rustup.sh --channel=nightly --date=2015-04-09
 ```
 
+Install to a prefix by setting the environment.
+
+```
+RUSTUP_PREFIX=my/install/dir rustup.sh
+```
+
 ## Future work
 
 * Support install of explicit versions.
