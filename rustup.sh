@@ -379,7 +379,10 @@ install_toolchain_from_dist() {
     local _prefix="$2"
 
     if [ "$using_insecure_dist_server" = "true" ]; then
-	say "gpg available. disabling https (avoids rust#21293)"
+	# disabling https avoids rust#21293
+	say "gpg available. signatures will be verified"
+    else
+	say "gpg not available. signatures will not be verified"
     fi
 
     determine_remote_rust_installer_location "$_toolchain"
@@ -400,6 +403,7 @@ install_toolchain_from_dist() {
     verbose_say "download work dir: $_workdir"
 
     # Download and install toolchain
+    say "downloading toolchain for '$_toolchain'"
     download_and_check "$_remote_rust_installer" "$_workdir/$_rust_installer_name"
     if [ $? != 0 ]; then
 	rm -R "$_workdir"
@@ -560,7 +564,7 @@ download_manifest()  {
     verbose_say "remote $_name manifest: $_remote_manifest"
     verbose_say "local $_name manifest: $_local_manifest"
 
-    say "downloading $_name manifest for '$_toolchain'"
+    say "downloading manifest for '$_toolchain'"
     download_and_check "$_remote_manifest" "$_local_manifest"
     if [ $? != 0 ]; then
 	return 1
@@ -838,7 +842,7 @@ check_sig() {
 	return 1
     fi
 
-    say "verifying signature '$_sig_file'"
+    verbose_say "verifying signature '$_sig_file'"
     gpg --keyring "$_workdir/key.asc.gpg" --verify "$_sig_file"
     if [ $? != 0 ]; then
 	rm -R "$_workdir"
@@ -908,8 +912,8 @@ download_checksum_for() {
     assert_nz "$_workdir" "workdir"
     verbose_say "download work dir: $_workdir"
 
-    say "downloading '$_remote_sums' to '$_workdir'"
-    (cd "$_workdir" && curl -f -O "$_remote_sums")
+    verbose_say "downloading '$_remote_sums' to '$_workdir'"
+    (cd "$_workdir" && curl -s -f -O "$_remote_sums")
     if [ $? != 0 ]; then
 	rm -R "$_workdir"
 	say_err "couldn't download checksum file '$_remote_sums'"
@@ -954,8 +958,8 @@ download_file_and_sig() {
     assert_nz "$_workdir" "workdir"
     verbose_say "download work dir: $_workdir"
 
-    say "downloading '$_remote_sig' to '$_workdir'"
-    (cd "$_workdir" && curl -f -O "$_remote_sig")
+    verbose_say "downloading '$_remote_sig' to '$_workdir'"
+    (cd "$_workdir" && curl -s -f -O "$_remote_sig")
     if [ $? != 0 ]; then
 	rm -R "$_workdir"
 	say_err "couldn't download signature file '$_remote_sig'"
@@ -978,9 +982,9 @@ download_file_and_sig() {
 	return 1
     fi
 
-    say "downloading '$_remote_name' to '$dl_dir/$_dl_dir'"
+    verbose_say "downloading '$_remote_name' to '$dl_dir/$_dl_dir'"
     # Invoke curl in a way that will resume if necessary
-    (cd "$dl_dir/$_dl_dir" && curl -C - -f -O "$_remote_name")
+    (cd "$dl_dir/$_dl_dir" && curl -# -C - -f -O "$_remote_name")
     if [ $? != 0 ]; then
 	rm -R "$_workdir"
 	rm -R "$dl_dir/$_dl_dir"
@@ -1033,7 +1037,7 @@ check_file_and_sig() {
     local _local_sums="$_local_name.sha256"
     local _local_sig="$_local_name.asc"
 
-    say "verifying checksums for '$_local_name'"
+    verbose_say "verifying checksums for '$_local_name'"
     check_sums "$_local_sums"
     if [ $? != 0 ]; then
 	say_err "checksum failed for '$_local_name'"

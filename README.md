@@ -59,6 +59,5 @@ RUSTUP_PREFIX=my/install/dir rustup.sh
 
 * Support install of explicit versions.
 * Store downloads with --save.
-* Less spew
 * GC old temp and cache files.
 * Rustup doesn't need to store manifests like it does.
