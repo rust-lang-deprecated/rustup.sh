@@ -192,6 +192,10 @@ Mve696B5tlHyc1KxjHR6w9GRsh4=
 initialize_metadata() {
     verbose_say "checking metadata version"
 
+    if [ "$rustup_dir" = "$HOME" ]; then
+	err "RUSTUP_HOME is the same as HOME. this cannot be correct. aborting"
+    fi
+
     # This tries to guard against dumb values of RUSTUP_HOME like ~/ since
     # rustup will delete the entire directory.
     if [ -e "$rustup_dir" -a ! -e "$version_file" ]; then
