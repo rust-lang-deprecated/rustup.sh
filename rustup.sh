@@ -517,6 +517,10 @@ download_rust_manifest() {
 
     esac
 
+    verbose_say "creating manifests dir '$manifests_dir'"
+    mkdir -p "$manifests_dir"
+    need_ok "couldn't create manifests dir"
+
     get_local_rust_manifest_name "$_toolchain"
     local _local_rust_manifest="$RETVAL"
     assert_nz "$_local_rust_manifest" "local rust manifest"
@@ -532,10 +536,6 @@ download_manifest()  {
 
     verbose_say "remote $_name manifest: $_remote_manifest"
     verbose_say "local $_name manifest: $_local_manifest"
-
-    verbose_say "creating manifests dir '$manifests_dir'"
-    mkdir -p "$manifests_dir"
-    need_ok "couldn't create manifests dir"
 
     say "downloading $_name manifest for '$_toolchain'"
     download_and_check "$_remote_manifest" "$_local_manifest"
