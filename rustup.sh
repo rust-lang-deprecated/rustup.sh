@@ -655,7 +655,13 @@ check_sums() {
 
     local _sumfile_dirname="$(dirname "$_sumfile")"
     assert_nz "$_sumfile_dirname" "sumfile_dirname"
-    (cd "$_sumfile_dirname" && shasum -c -a 256 "$_workdir/tmpsums" > /dev/null)
+    if command -v sha256sum > /dev/null 2>&1; then
+	(cd "$_sumfile_dirname" && sha256sum -c "$_workdir/tmpsums" > /dev/null)
+    elif command -v shasum > /dev/null 2>&1; then
+	(cd "$_sumfile_dirname" && shasum -c -a 256 "$_workdir/tmpsums" > /dev/null)
+    else
+	err "need either sha256sum or shasum"
+    fi
     local _sum_retval=$?
 
     rm -R "$_workdir"

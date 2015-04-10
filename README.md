@@ -62,3 +62,4 @@ RUSTUP_PREFIX=my/install/dir rustup.sh
 * Less spew
 * GC old temp and cache files.
 * Fallbacks for sha256sum.
+* Rustup doesn't need to store manifests like it does.
