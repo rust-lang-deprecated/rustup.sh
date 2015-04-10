@@ -1,5 +1,11 @@
 The rustup.sh is used for installing from Rust release channels.
 
+This script is most often run directly from the web, like so.
+
+```
+curl -sf https://static.rust-lang.org/rustup.sh | sudo sh
+```
+
 ## Examples
 
 Download and install the default channel, currently beta.
