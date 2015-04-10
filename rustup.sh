@@ -400,20 +400,7 @@ install_toolchain_from_dist() {
     verbose_say "download work dir: $_workdir"
 
     # Download and install toolchain
-    say "downloading checksums for rust installer from '$_remote_rust_installer'"
-    download_checksum_for "$_remote_rust_installer" "$_workdir/$_rust_installer_name"
-    if [ $? != 0 ]; then
-	rm -R "$_workdir"
-	return 1
-    fi
-
-    say "downloading rust installer from '$_remote_rust_installer'"
-    download_file_and_sig "$_remote_rust_installer" "$_workdir/$_rust_installer_name"
-    if [ $? != 0 ]; then
-	rm -R "$_workdir"
-	return 1
-    fi
-    check_file_and_sig "$_workdir/$_rust_installer_name"
+    download_and_check "$_remote_rust_installer" "$_workdir/$_rust_installer_name"
     if [ $? != 0 ]; then
 	rm -R "$_workdir"
 	return 1
