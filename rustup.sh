@@ -664,6 +664,24 @@ check_sums() {
     return $_sum_retval
 }
 
+# Outputs 40-char sum to stdout
+create_sum() {
+    local _input="$1"
+
+    local _sum="none"
+    if command -v sha256sum > /dev/null 2>&1; then
+	_sum="$(sha256sum "$_input" | head -c 40)"
+	need_ok "sha256sum failed"
+    elif command -v shasum > /dev/null 2>&1; then
+	_sum="$(shasum -a 256 "$_input" | head -c 40)"
+	need_ok "shasum failed"
+    else
+	err "need either sha256sum or shasum"
+    fi
+
+    printf "$_sum"
+}
+
 get_architecture() {
 
     verbose_say "detecting architecture"
@@ -902,7 +920,7 @@ download_file_and_sig() {
     if [ ! -e "$_local_name.sha256" ]; then
 	err "local checksum for remote file not in expected location"
     fi
-    local _dl_dir="$(cat "$_local_name.sha256" | shasum -a 256 | head -c 10)"
+    local _dl_dir="$(create_sum "$_local_name.sha256" | head -c 10)"
     need_ok "failed to calculate temporary download file name"
     verbose_say "dl dir: $dl_dir/$_dl_dir"
     mkdir -p "$dl_dir/$_dl_dir"
@@ -1051,8 +1069,14 @@ need_cmd mv
 need_cmd awk
 need_cmd cut
 need_cmd sort
-need_cmd shasum
 need_cmd date
 need_cmd head
+need_cmd printf
+
+if ! command -v sha256sum > /dev/null 2>&1; then
+    if ! command -v shasum > /dev/null 2>&1; then
+	err "need either sha256sum or shasum"
+    fi
+fi
 
 main "$@"
