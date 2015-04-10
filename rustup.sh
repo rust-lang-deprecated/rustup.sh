@@ -200,6 +200,7 @@ initialize_metadata() {
     # rustup will delete the entire directory.
     if [ -e "$rustup_dir" -a ! -e "$version_file" ]; then
 	say "rustup home dir exists at $rustup_dir but version file $version_file does not."
+	say "this may be old rustup metadata, in which case it can be deleted."
 	err "this is very suspicous. aborting."
     fi
 
