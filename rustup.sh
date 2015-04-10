@@ -238,8 +238,6 @@ handle_command_line_args() {
     local _channel="$default_channel"
     local _help=false
 
-    verbose_say "XXX $_prefix"
-    
     for arg in "$@"; do
 	case "$arg" in
 	    --save )
