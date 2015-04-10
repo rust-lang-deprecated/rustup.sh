@@ -228,6 +228,7 @@ handle_command_line_args() {
     local _prefix="$default_prefix"
     local _uninstall=false
     local _channel="$default_channel"
+    local _help=false
 
     verbose_say "XXX $_prefix"
     
@@ -239,6 +240,8 @@ handle_command_line_args() {
 	    --uninstall )
 		_uninstall=true
 		;;
+	    --help )
+		_help=true
 	esac
 
 	if is_value_arg "$arg" "prefix"; then
@@ -249,6 +252,11 @@ handle_command_line_args() {
 	    _date="$(get_value_arg "$arg")"
 	fi
     done
+
+    if [ "$_help" = true ]; then
+	print_help
+	exit 0
+    fi
 
     # All work is done in the ~/.rustup dir, which will be deleted
     # afterward if the user doesn't pass --save. *If* ~/.rustup
@@ -966,6 +974,22 @@ check_file_and_sig() {
 	say_err "signature failed for '$_local_name'"
 	return 1
     fi
+}
+
+# Help
+
+print_help() {
+echo '
+Usage: rustup.sh [--channel=<channel>]
+
+Options:
+
+     --channel=(stable|beta|release)   Install from channel (default beta)
+     --date=<YYYY-MM-DD>               Install from archives
+     --prefix=<path>                   Install to a specific location (default /usr/local)
+     --uninstall                       Uninstall instead of install
+     --save                            Save downloads for future reuse
+'
 }
 
 # Standard utilities
