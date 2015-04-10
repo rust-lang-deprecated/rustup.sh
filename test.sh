@@ -756,18 +756,18 @@ validate_date() {
 runtest validate_date
 
 explicit_version() {
-    try rustup.sh --prefix="$TEST_PREFIX" --version=1.0.0
+    try rustup.sh --prefix="$TEST_PREFIX" --revision=1.0.0
     try test -e "$TEST_PREFIX/bin/rustc"
 }
 runtest explicit_version
 
 explicit_version_with_channel() {
-    expect_output_fail "the --version flag may not be combined with --channel" rustup.sh --prefix="$TEST_PREFIX" --version=1.0.0 --channel=nightly
+    expect_output_fail "the --revision flag may not be combined with --channel" rustup.sh --prefix="$TEST_PREFIX" --revision=1.0.0 --channel=nightly
 }
 runtest explicit_version_with_channel
 
 explicit_version_with_date() {
-    expect_output_fail "the --version flag may not be combined with --date" rustup.sh --prefix="$TEST_PREFIX" --version=1.0.0 --date=2015-01-01
+    expect_output_fail "the --revision flag may not be combined with --date" rustup.sh --prefix="$TEST_PREFIX" --revision=1.0.0 --date=2015-01-01
 }
 runtest explicit_version_with_date
 

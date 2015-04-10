@@ -19,7 +19,7 @@
 set -u # Undefined variables are errors
 
 main() {
-    set_globals "$@"
+    set_globals
     handle_command_line_args "$@"
 }
 
@@ -168,24 +168,6 @@ Mve696B5tlHyc1KxjHR6w9GRsh4=
     flag_verbose=false
     flag_yes=false
 
-    for opt in "$@"; do
-	case "$opt" in
-	    --verbose)
-		flag_verbose=true
-		;;
-
-	    -y | --yes)
-		flag_yes=true
-		;;
-
-	    --version)
-		echo "rustup.sh $version"
-		exit 0
-		;;
-
-	esac
-    done
-
     if [ -n "${RUSTUP_VERBOSE-}" ]; then
 	flag_verbose=true
     fi
@@ -237,7 +219,7 @@ handle_command_line_args() {
     local _uninstall=false
     local _channel=""
     local _help=false
-    local _version=""
+    local _revision=""
 
     for arg in "$@"; do
 	case "$arg" in
@@ -250,6 +232,22 @@ handle_command_line_args() {
 	    --help )
 		_help=true
 		;;
+
+	    --verbose)
+		# verbose is a global flag
+		flag_verbose=true
+		;;
+
+	    -y | --yes)
+		# yes is a global flag
+		flag_yes=true
+		;;
+
+	    --version)
+		echo "rustup.sh $version"
+		exit 0
+		;;
+
 	esac
 
 	if is_value_arg "$arg" "prefix"; then
@@ -258,8 +256,8 @@ handle_command_line_args() {
 	    _channel="$(get_value_arg "arg")"
 	elif is_value_arg "$arg" "date"; then
 	    _date="$(get_value_arg "$arg")"
-	elif is_value_arg "$arg" "version"; then
-	    _version="$(get_value_arg "$arg")"
+	elif is_value_arg "$arg" "revision"; then
+	    _revision="$(get_value_arg "$arg")"
 	fi
     done
 
@@ -281,16 +279,16 @@ handle_command_line_args() {
 	_preserve_rustup_dir=true
     fi
 
-    if [ -n "$_version" ]; then
+    if [ -n "$_revision" ]; then
 	if [ -n "$_channel" ]; then
-	    err "the --version flag may not be combined with --channel"
+	    err "the --revision flag may not be combined with --channel"
 	fi
 	if [ -n "$_date" ]; then
-	    err "the --version flag may not be combined with --date"
+	    err "the --revision flag may not be combined with --date"
 	fi
     fi
 
-    if [ -z "$_channel" -a -z "$_version" ]; then
+    if [ -z "$_channel" -a -z "$_revision" ]; then
 	_channel="$default_channel"
     fi
 
@@ -303,8 +301,8 @@ handle_command_line_args() {
 	    validate_date "$_date"
 	    _toolchain="$_toolchain-$_date"
 	fi
-    elif [ -n "$_version" ]; then
-	_toolchain="$_version"
+    elif [ -n "$_revision" ]; then
+	_toolchain="$_revision"
     fi
 
     # Make sure our data directory exists and is the right format

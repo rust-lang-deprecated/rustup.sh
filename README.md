@@ -58,7 +58,7 @@ RUSTUP_PREFIX=my/install/dir rustup.sh
 Install explicit versions.
 
 ```
-rustup.sh --version=1.0.0-beta
+rustup.sh --revision=1.0.0-beta
 ```
 
 ## Future work
