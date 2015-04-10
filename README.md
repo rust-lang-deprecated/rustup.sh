@@ -61,3 +61,4 @@ RUSTUP_PREFIX=my/install/dir rustup.sh
 * Store downloads with --save.
 * Less spew
 * GC old temp and cache files.
+* Fallbacks for sha256sum.
