@@ -53,3 +53,4 @@ rustup.sh --channel=nightly --date=2015-04-09
 
 * Support install of explicit versions.
 * Store downloads with --save.
+* Less spew
