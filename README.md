@@ -48,3 +48,8 @@ Install nightly archives.
 ```
 rustup.sh --channel=nightly --date=2015-04-09
 ```
+
+## Future work
+
+* Support install of explicit versions.
+* Store downloads with --save.
