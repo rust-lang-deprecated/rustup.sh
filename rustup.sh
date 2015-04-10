@@ -842,10 +842,16 @@ check_sig() {
     fi
 
     verbose_say "verifying signature '$_sig_file'"
-    gpg --keyring "$_workdir/key.asc.gpg" --verify "$_sig_file"
+    local _output="$(gpg --keyring "$_workdir/key.asc.gpg" --verify "$_sig_file" 2>&1)"
     if [ $? != 0 ]; then
+	echo "gpg output: $_output"
+	say_err "signature verification failed"
 	rm -R "$_workdir"
 	return 1
+    fi
+
+    if [ "$flag_verbose" = true ]; then
+	echo "gpg output: $_output"
     fi
 
     rm -R "$_workdir"
