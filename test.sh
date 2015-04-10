@@ -745,6 +745,16 @@ shasum_fallback() {
 }
 runtest shasum_fallback
 
+validate_channel() {
+    expect_output_fail "channel must be either 'stable', 'beta', or 'nightly'" rustup.sh --channel=pah
+}
+runtest validate_channel
+
+validate_date() {
+    expect_output_fail "date must be in YYYY-MM-DD format" rustup.sh --date=foo
+}
+runtest validate_date
+
 echo
 echo "SUCCESS"
 echo

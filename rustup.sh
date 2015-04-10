@@ -283,8 +283,11 @@ handle_command_line_args() {
     # Make sure our data directory exists and is the right format
     initialize_metadata
 
+    validate_channel "$_channel"
+
     local _toolchain="$_channel"
     if [ -n "$_date" ]; then
+	validate_date "$_date"
 	_toolchain="$_toolchain-$_date"
     fi
 
@@ -329,6 +332,30 @@ get_value_arg() {
     local _arg="$1"
 
     echo "$arg" | cut -f2 -d=
+}
+
+validate_channel() {
+    local _channel="$1"
+
+    case "$_channel" in
+	stable | beta | nightly )
+	    ;;
+	* )
+	    err "channel must be either 'stable', 'beta', or 'nightly'"
+	    ;;
+    esac
+}
+
+validate_date() {
+    local _date="$1"
+
+    case "$_date" in
+	[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] )
+	    ;;
+	* )
+	    err "date must be in YYYY-MM-DD format"
+	    ;;
+    esac
 }
 
 # Updating toolchains
