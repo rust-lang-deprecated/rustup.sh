@@ -720,11 +720,6 @@ obey_RUST_PREFIX() {
 }
 runtest obey_RUST_PREFIX
 
-reuse_cached_dated_installer() {
-    echo
-}
-runtest reuse_cached_dated_installer
-
 install_to_prefix_that_does_not_exist() {
     try rustup.sh --prefix="$TEST_PREFIX/a/b"
     try test -e "$TEST_PREFIX/a/b/bin/rustc"
@@ -740,6 +735,15 @@ suspicious_RUSTUP_HOME() {
     export RUSTUP_HOME="$_old_rustup_home"
 }
 runtest suspicious_RUSTUP_HOME
+
+shasum_fallback() {
+    export __RUSTUP_MOCK_SHA256SUM=bogus
+    try rustup.sh --prefix="$TEST_PREFIX"
+    try test -e "$TEST_PREFIX/bin/rustc"
+    expect_output_ok "falling back to shasum" rustup.sh --prefix="$TEST_PREFIX" --verbose
+    unset __RUSTUP_MOCK_SHA256SUM
+}
+runtest shasum_fallback
 
 echo
 echo "SUCCESS"

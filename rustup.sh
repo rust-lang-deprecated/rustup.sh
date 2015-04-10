@@ -161,6 +161,9 @@ Mve696B5tlHyc1KxjHR6w9GRsh4=
 	gpg_key="$official_rust_gpg_key"
     fi
 
+    # This is just used by test.sh for testing sha256sum fallback to shasum
+    sha256sum_cmd="${__RUSTUP_MOCK_SHA256SUM-sha256sum}"
+
     # Check for some global command-line options
     flag_verbose=false
     flag_yes=false
@@ -262,6 +265,9 @@ handle_command_line_args() {
 	print_help
 	exit 0
     fi
+
+    # Make sure either rust256sum or shasum exists
+    need_shasum_cmd
 
     # All work is done in the ~/.rustup dir, which will be deleted
     # afterward if the user doesn't pass --save. *If* ~/.rustup
@@ -655,8 +661,8 @@ check_sums() {
 
     local _sumfile_dirname="$(dirname "$_sumfile")"
     assert_nz "$_sumfile_dirname" "sumfile_dirname"
-    if command -v sha256sum > /dev/null 2>&1; then
-	(cd "$_sumfile_dirname" && sha256sum -c "$_workdir/tmpsums" > /dev/null)
+    if command -v "$sha256sum_cmd" > /dev/null 2>&1; then
+	(cd "$_sumfile_dirname" && "$sha256sum_cmd" -c "$_workdir/tmpsums" > /dev/null)
     elif command -v shasum > /dev/null 2>&1; then
 	(cd "$_sumfile_dirname" && shasum -c -a 256 "$_workdir/tmpsums" > /dev/null)
     else
@@ -675,8 +681,8 @@ create_sum() {
     local _input="$1"
 
     local _sum="none"
-    if command -v sha256sum > /dev/null 2>&1; then
-	_sum="$(sha256sum "$_input" | head -c 40)"
+    if command -v "$sha256sum_cmd" > /dev/null 2>&1; then
+	_sum="$("$sha256sum_cmd" "$_input" | head -c 40)"
 	need_ok "sha256sum failed"
     elif command -v shasum > /dev/null 2>&1; then
 	_sum="$(shasum -a 256 "$_input" | head -c 40)"
@@ -686,6 +692,16 @@ create_sum() {
     fi
 
     printf "$_sum"
+}
+
+need_shasum_cmd() {
+    if ! command -v "$sha256sum_cmd" > /dev/null 2>&1; then
+	if ! command -v shasum > /dev/null 2>&1; then
+	    err "need either sha256sum or shasum"
+	else
+	    verbose_say "sha256sum not available. falling back to shasum"
+	fi
+    fi
 }
 
 get_architecture() {
@@ -1078,11 +1094,5 @@ need_cmd sort
 need_cmd date
 need_cmd head
 need_cmd printf
-
-if ! command -v sha256sum > /dev/null 2>&1; then
-    if ! command -v shasum > /dev/null 2>&1; then
-	err "need either sha256sum or shasum"
-    fi
-fi
 
 main "$@"
