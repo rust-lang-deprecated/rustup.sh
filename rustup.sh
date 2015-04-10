@@ -1093,6 +1093,7 @@ Options:
 
      --channel=(stable|beta|release)   Install from channel (default beta)
      --date=<YYYY-MM-DD>               Install from archives
+     --revision=<version-number>       Install a specific release
      --prefix=<path>                   Install to a specific location (default /usr/local)
      --uninstall                       Uninstall instead of install
      --save                            Save downloads for future reuse
