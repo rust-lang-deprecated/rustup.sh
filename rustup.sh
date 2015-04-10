@@ -288,14 +288,15 @@ handle_command_line_args() {
 	if [ -n "$_date" ]; then
 	    err "the --version flag may not be combined with --date"
 	fi
+    fi
 
+    if [ -z "$_channel" -a -z "$_version" ]; then
+	_channel="$default_channel"
     fi
 
     # Toolchain can be either a channel, channel + date, or an explicit version
     local _toolchain=""
-    if [ -z "$_channel" -a -z "$_version" ]; then
-	_toolchain="$default_channel"
-    elif [ -n "$_channel" ]; then
+    if [ -n "$_channel" ]; then
 	validate_channel "$_channel"
 	_toolchain="$_channel"
 	if [ -n "$_date" ]; then
