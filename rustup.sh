@@ -1060,7 +1060,7 @@ check_file_and_sig() {
 
 print_help() {
 echo '
-Usage: rustup.sh [--channel=<channel>]
+Usage: rustup.sh [--verbose]
 
 Options:
 
