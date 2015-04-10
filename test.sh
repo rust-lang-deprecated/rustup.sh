@@ -731,6 +731,8 @@ install_to_prefix_that_does_not_exist() {
 }
 runtest install_to_prefix_that_does_not_exist
 
+# Existing directories that do not contain the rustup-version file
+# indicate user error.
 suspicious_RUSTUP_HOME() {
     local _old_rustup_home="$RUSTUP_HOME"
     export RUSTUP_HOME="$TMP_DIR"
