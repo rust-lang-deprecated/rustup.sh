@@ -294,7 +294,7 @@ handle_command_line_args() {
     # FIXME: This will not be removed if an error occurred earlier
     if [ "$_preserve_rustup_dir" = false ]; then
 	verbose_say "removing rustup home $rustup_dir"
-	rm -Rf "$rustup_dir"
+	rm -R "$rustup_dir"
 	# Ignore errors
     else
 	verbose_say "leaving rustup home $rustup_dir"
