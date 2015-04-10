@@ -404,7 +404,7 @@ install_toolchain_from_dist() {
 
     # Download and install toolchain
     say "downloading toolchain for '$_toolchain'"
-    download_and_check "$_remote_rust_installer" "$_workdir/$_rust_installer_name"
+    download_and_check "$_remote_rust_installer" "$_workdir/$_rust_installer_name" false
     if [ $? != 0 ]; then
 	rm -R "$_workdir"
 	return 1
@@ -565,7 +565,7 @@ download_manifest()  {
     verbose_say "local $_name manifest: $_local_manifest"
 
     say "downloading manifest for '$_toolchain'"
-    download_and_check "$_remote_manifest" "$_local_manifest"
+    download_and_check "$_remote_manifest" "$_local_manifest" true
     if [ $? != 0 ]; then
 	return 1
     fi
@@ -819,6 +819,7 @@ get_architecture() {
 
 check_sig() {
     local _sig_file="$1"
+    local _quiet="$2"
 
     if ! command -v gpg > /dev/null 2>&1; then
 	say "gpg not found. not verifying signatures"
@@ -844,14 +845,14 @@ check_sig() {
     verbose_say "verifying signature '$_sig_file'"
     local _output="$(gpg --keyring "$_workdir/key.asc.gpg" --verify "$_sig_file" 2>&1)"
     if [ $? != 0 ]; then
-	echo "gpg output: $_output"
+	echo "$_output"
 	say_err "signature verification failed"
 	rm -R "$_workdir"
 	return 1
     fi
 
-    if [ "$flag_verbose" = true ]; then
-	echo "gpg output: $_output"
+    if [ "$_quiet" = false -o "$flag_verbose" = true ]; then
+	echo "$_output"
     fi
 
     rm -R "$_workdir"
@@ -863,6 +864,7 @@ check_sig() {
 download_and_check() {
     local _remote_name="$1"
     local _local_name="$2"
+    local _quiet="$3"
 
     local _remote_sums="$_remote_name.sha256"
     local _local_sums="$_local_name.sha256"
@@ -879,12 +881,12 @@ download_and_check() {
 	rm -R "$_workdir"
 	return 1
     fi
-    download_file_and_sig "$_remote_name" "$_workdir/$_remote_basename"
+    download_file_and_sig "$_remote_name" "$_workdir/$_remote_basename" "$_quiet"
     if [ $? != 0 ]; then
 	rm -R "$_workdir"
 	return 1
     fi
-    check_file_and_sig "$_workdir/$_remote_basename"
+    check_file_and_sig "$_workdir/$_remote_basename" "$_quiet"
     if [ $? != 0 ]; then
 	rm -R "$_workdir"
 	return 1
@@ -943,6 +945,7 @@ download_checksum_for() {
 download_file_and_sig() {
     local _remote_name="$1"
     local _local_name="$2"
+    local _quiet="$3"
 
     local _remote_sums="$_remote_name.sha256"
     local _local_sums="$_local_name.sha256"
@@ -989,7 +992,11 @@ download_file_and_sig() {
 
     verbose_say "downloading '$_remote_name' to '$dl_dir/$_dl_dir'"
     # Invoke curl in a way that will resume if necessary
-    (cd "$dl_dir/$_dl_dir" && curl -# -C - -f -O "$_remote_name")
+    if [ "$_quiet" = false ]; then
+	(cd "$dl_dir/$_dl_dir" && curl -# -C - -f -O "$_remote_name")
+    else
+	(cd "$dl_dir/$_dl_dir" && curl -s -C - -f -O "$_remote_name")
+    fi
     if [ $? != 0 ]; then
 	rm -R "$_workdir"
 	rm -R "$dl_dir/$_dl_dir"
@@ -1038,6 +1045,7 @@ download_file_and_sig() {
 
 check_file_and_sig() {
     local _local_name="$1"
+    local _quiet="$2"
 
     local _local_sums="$_local_name.sha256"
     local _local_sig="$_local_name.asc"
@@ -1049,7 +1057,7 @@ check_file_and_sig() {
 	return 1
     fi
 
-    check_sig "$_local_sig"
+    check_sig "$_local_sig" "$_quiet"
     if [ $? != 0 ]; then
 	say_err "signature failed for '$_local_name'"
 	return 1
