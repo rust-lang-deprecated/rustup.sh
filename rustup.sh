@@ -235,8 +235,9 @@ handle_command_line_args() {
     local _date=""
     local _prefix="$default_prefix"
     local _uninstall=false
-    local _channel="$default_channel"
+    local _channel=""
     local _help=false
+    local _version=""
 
     for arg in "$@"; do
 	case "$arg" in
@@ -257,6 +258,8 @@ handle_command_line_args() {
 	    _channel="$(get_value_arg "arg")"
 	elif is_value_arg "$arg" "date"; then
 	    _date="$(get_value_arg "$arg")"
+	elif is_value_arg "$arg" "version"; then
+	    _version="$(get_value_arg "$arg")"
 	fi
     done
 
@@ -278,16 +281,33 @@ handle_command_line_args() {
 	_preserve_rustup_dir=true
     fi
 
+    if [ -n "$_version" ]; then
+	if [ -n "$_channel" ]; then
+	    err "the --version flag may not be combined with --channel"
+	fi
+	if [ -n "$_date" ]; then
+	    err "the --version flag may not be combined with --date"
+	fi
+
+    fi
+
+    # Toolchain can be either a channel, channel + date, or an explicit version
+    local _toolchain=""
+    if [ -z "$_channel" -a -z "$_version" ]; then
+	_toolchain="$default_channel"
+    elif [ -n "$_channel" ]; then
+	validate_channel "$_channel"
+	_toolchain="$_channel"
+	if [ -n "$_date" ]; then
+	    validate_date "$_date"
+	    _toolchain="$_toolchain-$_date"
+	fi
+    elif [ -n "$_version" ]; then
+	_toolchain="$_version"
+    fi
+
     # Make sure our data directory exists and is the right format
     initialize_metadata
-
-    validate_channel "$_channel"
-
-    local _toolchain="$_channel"
-    if [ -n "$_date" ]; then
-	validate_date "$_date"
-	_toolchain="$_toolchain-$_date"
-    fi
 
     # OK, time to do the things
     local _succeeded=true
@@ -505,7 +525,7 @@ determine_remote_rust_installer_location() {
 	    ;;
 
 	* )
-	    say "interpreting toolchain spec as explicit version"
+	    verbose_say "interpreting toolchain spec as explicit version"
 	    get_architecture
 	    local _arch="$RETVAL"
 	    assert_nz "$_arch" "arch"
