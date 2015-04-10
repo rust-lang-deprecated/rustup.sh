@@ -357,6 +357,9 @@ install_toolchain_from_dist() {
     fi
 
     determine_remote_rust_installer_location "$_toolchain"
+    if [ $? != 0 ]; then
+	return 1
+    fi
     local _remote_rust_installer="$RETVAL"
     assert_nz "$_remote_rust_installer" "remote rust installer"
     verbose_say "remote rust installer location: $_remote_rust_installer"
@@ -474,6 +477,9 @@ determine_remote_rust_installer_location() {
     case "$_toolchain" in
 	nightly | beta | stable | nightly-* | beta-* | stable-* )
 	    download_rust_manifest "$_toolchain"
+	    if [ $? != 0 ]; then
+		return 1
+	    fi
 	    get_local_rust_manifest_name "$_toolchain"
 	    local _manifest_file="$RETVAL"
 	    assert_nz "$_manifest_file" "manifest file"
@@ -494,6 +500,7 @@ determine_remote_rust_installer_location() {
     esac
 }
 
+# Returns 0 on success
 download_rust_manifest() {
     local _toolchain="$1"
 
@@ -526,6 +533,9 @@ download_rust_manifest() {
     assert_nz "$_local_rust_manifest" "local rust manifest"
 
     download_manifest "$_toolchain" "rust" "$_remote_rust_manifest" "$_local_rust_manifest"
+    if [ $? != 0 ]; then
+	return 1
+    fi
 }
 
 download_manifest()  {
@@ -539,6 +549,9 @@ download_manifest()  {
 
     say "downloading $_name manifest for '$_toolchain'"
     download_and_check "$_remote_manifest" "$_local_manifest"
+    if [ $? != 0 ]; then
+	return 1
+    fi
 }
 
 get_remote_installer_location_from_manifest() {
@@ -842,17 +855,17 @@ download_and_check() {
     download_checksum_for "$_remote_name" "$_workdir/$_remote_basename"
     if [ $? != 0 ]; then
 	rm -R "$_workdir"
-	exit 1
+	return 1
     fi
     download_file_and_sig "$_remote_name" "$_workdir/$_remote_basename"
     if [ $? != 0 ]; then
 	rm -R "$_workdir"
-	exit 1
+	return 1
     fi
     check_file_and_sig "$_workdir/$_remote_basename"
     if [ $? != 0 ]; then
 	rm -R "$_workdir"
-	exit 1
+	return 1
     fi
 
     mv -f "$_workdir/$_remote_basename" "$_local_name"
