@@ -16,7 +16,7 @@
 # * exported values are `LIKE_THIS`.
 # * out-of-band return values are put into `RETVAL`.
 
-set -u
+set -u # Undefined variables are errors
 
 main() {
     set_globals "$@"
