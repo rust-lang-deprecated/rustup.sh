@@ -340,7 +340,7 @@ update_toolchain() {
     local _is_installed="$RETVAL"
 
     if [ "$_is_installed" = true ]; then
-	say "updating existing install for '$_toolchain'"
+	say "updating existing install to '$_toolchain'"
     else
 	say "installing toolchain '$_toolchain'"
     fi
