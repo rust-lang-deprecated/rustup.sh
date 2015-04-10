@@ -250,6 +250,7 @@ handle_command_line_args() {
 		;;
 	    --help )
 		_help=true
+		;;
 	esac
 
 	if is_value_arg "$arg" "prefix"; then
