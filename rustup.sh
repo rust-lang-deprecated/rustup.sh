@@ -303,8 +303,8 @@ handle_command_line_args() {
 	fi
     fi
 
-    # Remove the temporary directory
-    # FIXME: This will not be removed if an error occurred earlier
+    # Remove the temporary directory.
+    # This will not happen if we hit certain hard errors earlier.
     if [ "$_preserve_rustup_dir" = false ]; then
 	verbose_say "removing rustup home $rustup_dir"
 	rm -R "$rustup_dir"
