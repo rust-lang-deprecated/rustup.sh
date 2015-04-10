@@ -837,7 +837,6 @@ check_sig() {
     verbose_say "converting armored key to gpg"
     gpg --dearmor "$_workdir/key.asc"
     if [ $? != 0 ]; then
-	exit 1
 	rm -R "$_workdir"
 	return 1
     fi
