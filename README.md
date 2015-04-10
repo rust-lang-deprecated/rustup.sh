@@ -1,12 +1,21 @@
 [![Build Status](https://travis-ci.org/rust-lang/rustup.svg?branch=master)](https://travis-ci.org/rust-lang/rustup)
 
-The rustup.sh script is used for installing from Rust release channels.
+The rustup.sh script installs Rust from the Rust release channels.
 
-This script is most often run directly from the web, like so.
+This script is most often run directly from the web.
 
 ```
 curl -sf https://static.rust-lang.org/rustup.sh | sudo sh
 ```
+
+Features:
+
+* Install from stable, beta, or nightly channels.
+* Install from the archives.
+* Verifies hashes.
+* Verifies signatures (if gpg is available).
+* Resumes downloads.
+* For Linux and OS X (Windows support someday).
 
 ## Examples
 
