@@ -224,6 +224,7 @@ initialize_metadata() {
 	need_ok "failed to write metadata version"
     else
 	local _current_version="$(cat "$version_file")"
+	need_ok "failed to load metadata version"
 	verbose_say "got metadata version $_current_version"
 	if [ "$_current_version" != "$metadata_version" ]; then
 	    # Wipe the out of date metadata.
