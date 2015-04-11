@@ -64,7 +64,6 @@ set_globals() {
 
     # Data locations
     version_file="$rustup_dir/rustup-version"
-    installer_dir="$rustup_dir/installers"
     temp_dir="$rustup_dir/tmp"
     dl_dir="$rustup_dir/dl"
 
@@ -314,7 +313,7 @@ handle_command_line_args() {
     # OK, time to do the things
     local _succeeded=true
     if [ "$_uninstall" = false ]; then
-	update_toolchain "$_toolchain" "$_prefix"
+	update_toolchain "$_toolchain" "$_prefix" "$_save"
 	if [ $? != 0 ]; then
 	    _succeeded=false
 	fi
@@ -383,6 +382,7 @@ validate_date() {
 update_toolchain() {
     local _toolchain="$1"
     local _prefix="$2"
+    local _save="$3"
 
     is_toolchain_installed "$_prefix"
     local _is_installed="$RETVAL"
@@ -393,12 +393,13 @@ update_toolchain() {
 	say "installing toolchain '$_toolchain'"
     fi
 
-    install_toolchain_from_dist "$_toolchain" "$_prefix"
+    install_toolchain_from_dist "$_toolchain" "$_prefix" "$_save"
 }
 
 install_toolchain_from_dist() {
     local _toolchain="$1"
     local _prefix="$2"
+    local _save="$3"
 
     if [ "$using_insecure_dist_server" = "true" ]; then
 	# disabling https avoids rust#21293
@@ -418,24 +419,26 @@ install_toolchain_from_dist() {
     local _rust_installer_name="$(basename "$_remote_rust_installer")"
     assert_nz "$_rust_installer_name" "rust installer name"
 
-    # Create a temp directory to put the downloaded toolchain
-    make_temp_dir
-    local _workdir="$RETVAL"
-    assert_nz "$_workdir" "workdir"
-    verbose_say "download work dir: $_workdir"
-
     # Download and install toolchain
     say "downloading toolchain for '$_toolchain'"
     download_and_check "$_remote_rust_installer" false
     if [ $? != 0 ]; then
-	rm -R "$_workdir"
 	return 1
     fi
     local _installer_file="$RETVAL"
+    local _installer_cache="$RETVAL_CACHE"
+    assert_nz "$RETVAL_CACHE"
+
+    # Create a temp directory to put the downloaded toolchain
+    make_temp_dir
+    local _workdir="$RETVAL"
+    assert_nz "$_workdir" "workdir"
+    verbose_say "install work dir: $_workdir"
 
     install_toolchain "$_toolchain" "$_installer_file" "$_workdir" "$_prefix"
     if [ $? != 0 ]; then
 	rm -R "$_workdir"
+	# Ignore errors
 	say_err "failed to install toolchain"
 	return 1
     fi
@@ -444,6 +447,16 @@ install_toolchain_from_dist() {
     if [ $? != 0 ]; then
 	say_err "couldn't delete workdir"
 	return 1
+    fi
+
+    # Throw away the cache if not --save
+    if [ "$_save" = false ]; then
+	verbose_say "discarding cache '$_installer_cache'"
+	rm -R "$_installer_cache"
+	if [ $? != 0 ]; then
+	    say_err "couldn't delete cache dir"
+	    return 1
+	fi
     fi
 }
 
@@ -521,7 +534,13 @@ determine_remote_rust_installer_location() {
 	    fi
 	    local _manifest_file="$RETVAL"
 	    assert_nz "$_manifest_file" "manifest file"
+	    local _manifest_cache="$RETVAL_CACHE"
+	    assert_n "$_manifest_cache" "manifest cache"
 	    get_remote_installer_location_from_manifest "$_toolchain" "$_manifest_file" rust "$rust_dist_dir"
+	    RETVAL="$RETVAL"
+	    verbose_say "deleting cache dir $_manifest_cache"
+	    rm -R "$_manifest_cache"
+	    need_ok "failed to delete manifest cache dir"
 	    return
 	    ;;
 
@@ -538,7 +557,8 @@ determine_remote_rust_installer_location() {
     esac
 }
 
-# Returns 0 on success
+# Returns 0 on success.
+# Returns the manifest file in RETVAL and it's cache dir in RETVAL_CACHE.
 download_rust_manifest() {
     local _toolchain="$1"
 
@@ -566,9 +586,8 @@ download_rust_manifest() {
     if [ $? != 0 ]; then
 	return 1
     fi
-    local _local_rust_manifest="$RETVAL"
-    assert_nz "$_local_rust_manifest" "local rust manifest"
-    RETVAL="$_local_rust_manifest"
+    RETVAL="$RETVAL"
+    RETVAL_CACHE="$RETVAL_CACHE"
 }
 
 download_manifest()  {
@@ -583,9 +602,8 @@ download_manifest()  {
     if [ $? != 0 ]; then
 	return 1
     fi
-    local _local_rust_manifest="$RETVAL"
-    assert_nz "$_local_rust_manifest" "local rust manifest"
-    RETVAL="$_local_rust_manifest"
+    RETVAL="$RETVAL"
+    RETVAL_CACHE="$RETVAL_CACHE"
 }
 
 get_remote_installer_location_from_manifest() {
@@ -669,17 +687,6 @@ make_temp_name() {
     local _tmp_name="tmp-$_pid-$_tmp_number"
     NEXT_TMP_NUMBER="$(expr "$_tmp_number" + 1)"
     assert_nz "$NEXT_TMP_NUMBER" "NEXT_TMP_NUMBER"
-    RETVAL="$_tmp_name"
-}
-
-make_temp() {
-    mkdir -p "$temp_dir"
-    need_ok "failed to make temp dir '$temp_dir'"
-
-    make_temp_name
-    local _tmp_name="$temp_dir/$RETVAL"
-    touch "$_tmp_name"
-    need_ok "couldn't make temp file '$_tmp_name'"
     RETVAL="$_tmp_name"
 }
 
@@ -877,7 +884,11 @@ check_sig() {
     return 0
 }
 
-# Downloads a remote file, its checksum, and signature and verifies them
+# Downloads a remote file, its checksum, and signature and verifies them.
+# Returns 0 on success. Returns the path to the downloaded file in RETVAL,
+# and the path to it's directory in the cache in RETVAL_CACHE.
+#
+# The caller can decide to remove it from the cache by deleting RETVAL_CACHE.
 download_and_check() {
     local _remote_name="$1"
     local _quiet="$2"
@@ -942,6 +953,7 @@ download_and_check() {
     fi
 
     RETVAL="$_cache_dir/$_remote_basename"
+    RETVAL_CACHE="$_cache_dir"
 }
 
 download_checksum_for() {

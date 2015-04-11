@@ -771,6 +771,19 @@ explicit_version_with_date() {
 }
 runtest explicit_version_with_date
 
+save_and_no_save() {
+    # Run with --save to create the rustup directory, and save the downloaded installer
+    try rustup.sh --prefix="$TEST_PREFIX" --revision=1.0.0 --save
+    local _cache_dir="$(ls "$RUSTUP_HOME/dl")"
+    try test -n "$_cache_dir"
+    try test -e "$RUSTUP_HOME/dl/$_cache_dir/*.tar.gz"
+    # This time it will delete the downloaded files
+    try rustup.sh --prefix="$TEST_PREFIX" --revision=1.0.0
+    local _dirlisting="$(ls "$RUSTUP_HOME/dl")"
+    try test -z "$_dirlisting"
+}
+runtest save_and_no_save
+
 echo
 echo "SUCCESS"
 echo
