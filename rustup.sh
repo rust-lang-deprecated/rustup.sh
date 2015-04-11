@@ -22,8 +22,9 @@
 #
 # This doesn't use -e because it makes it hard to control the
 # presentation of and response to errors. So most every command
-# needs to be followed with a check of `$?` or a call to `need_ok`
-# for commands that should never fail.
+# needs to be followed with a check of `$?`. Commands that
+# should more-or-less never fail are either called via `ensure`,
+# or followed by a call to `need_ok`.
 #
 # Don't make typos. You just have to be better than that.
 #
@@ -213,8 +214,7 @@ initialize_metadata() {
 	err "this is very suspicous. aborting."
     fi
 
-    mkdir -p "$rustup_dir"
-    need_ok "failed to create home directory"
+    ensure mkdir -p "$rustup_dir"
     rustup_dir="$(cd "$rustup_dir" && pwd)"
     assert_nz "$rustup_dir" "rustup_dir"
 
@@ -223,16 +223,14 @@ initialize_metadata() {
 	echo "$metadata_version" > "$version_file"
 	need_ok "failed to write metadata version"
     else
-	local _current_version="$(cat "$version_file")"
-	need_ok "failed to load metadata version"
+	local _current_version="$(ensure cat "$version_file")"
+	assert_nz "$_current_version"
 	verbose_say "got metadata version $_current_version"
 	if [ "$_current_version" != "$metadata_version" ]; then
 	    # Wipe the out of date metadata.
 	    say "metadata is out of date. deleting."
-	    rm -R "$rustup_dir"
-	    need_ok "failed to remove $rustup_dir"
-	    mkdir -p "$rustup_dir"
-	    need_ok "failed to create $rustup_dir"
+	    ensure rm -R "$rustup_dir"
+	    ensure mkdir -p "$rustup_dir"
 	    echo "$metadata_version" > "$version_file"
 	    need_ok "failed to write metadata version"
 	fi
@@ -458,10 +456,7 @@ install_toolchain_from_dist() {
 	say "gpg not available. signatures will not be verified"
     fi
 
-    determine_remote_rust_installer_location "$_toolchain"
-    if [ $? != 0 ]; then
-	return 1
-    fi
+    determine_remote_rust_installer_location "$_toolchain" || return 1
     local _remote_rust_installer="$RETVAL"
     assert_nz "$_remote_rust_installer" "remote rust installer"
     verbose_say "remote rust installer location: $_remote_rust_installer"
@@ -514,7 +509,7 @@ install_toolchain_from_dist() {
     # Throw away the cache if not --save
     if [ "$_save" = false ]; then
 	verbose_say "discarding cache '$_installer_cache'"
-	rm -R "$_installer_cache"
+	run rm -R "$_installer_cache"
 	if [ $? != 0 ]; then
 	    say_err "couldn't delete cache dir"
 	    _failing=true
@@ -594,31 +589,25 @@ determine_remote_rust_installer_location() {
 
     case "$_toolchain" in
 	nightly | beta | stable | nightly-* | beta-* | stable-* )
-	    download_rust_manifest "$_toolchain"
-	    if [ $? != 0 ]; then
-		return 1
-	    fi
+	    download_rust_manifest "$_toolchain" || return 1
 	    local _manifest_file="$RETVAL"
 	    assert_nz "$_manifest_file" "manifest file"
 	    local _manifest_cache="$RETVAL_CACHE"
 	    assert_nz "$_manifest_cache" "manifest cache"
-	    get_remote_installer_location_from_manifest "$_toolchain" "$_manifest_file" rust "$rust_dist_dir"
+	    get_remote_installer_location_from_manifest "$_toolchain" "$_manifest_file" rust "$rust_dist_dir" || return 1
 	    RETVAL="$RETVAL"
 	    verbose_say "deleting cache dir $_manifest_cache"
-	    rm -R "$_manifest_cache"
-	    need_ok "failed to delete manifest cache dir"
-	    return
+	    run rm -R "$_manifest_cache" || return 1
 	    ;;
 
 	* )
 	    verbose_say "interpreting toolchain spec as explicit version"
-	    get_architecture
+	    get_architecture || return 1
 	    local _arch="$RETVAL"
 	    assert_nz "$_arch" "arch"
 
 	    local _file_name="rust-$_toolchain-$_arch.tar.gz"
 	    RETVAL="$dist_server/$rust_dist_dir/$_file_name"
-	    return
 	    ;;
     esac
 }
@@ -634,7 +623,7 @@ download_rust_manifest() {
 	    ;;
 
 	nightly-* | beta-* | stable-* )
-	    extract_channel_and_date_from_toolchain "$_toolchain"
+	    extract_channel_and_date_from_toolchain "$_toolchain" || return 1
 	    local _channel="$RETVAL_CHANNEL"
 	    local _date="$RETVAL_DATE"
 	    assert_nz "$_channel" "channel"
@@ -648,10 +637,7 @@ download_rust_manifest() {
 
     esac
 
-    download_manifest "$_toolchain" "rust" "$_remote_rust_manifest"
-    if [ $? != 0 ]; then
-	return 1
-    fi
+    download_manifest "$_toolchain" "rust" "$_remote_rust_manifest" || return 1
     RETVAL="$RETVAL"
     RETVAL_CACHE="$RETVAL_CACHE"
 }
@@ -664,12 +650,9 @@ download_manifest()  {
     verbose_say "remote $_name manifest: $_remote_manifest"
 
     say "downloading manifest for '$_toolchain'"
-    download_and_check "$_remote_manifest" true ""
     # It's not possible for $? = 20 here, because the update_hash_file
     # param is empty
-    if [ $? != 0 ]; then
-	return 1
-    fi
+    download_and_check "$_remote_manifest" true "" || return 1
     RETVAL="$RETVAL"
     RETVAL_CACHE="$RETVAL_CACHE"
 }
@@ -754,18 +737,17 @@ make_temp_name() {
     local _tmp_number="${NEXT_TMP_NUMBER-0}"
     local _tmp_name="tmp-$_pid-$_tmp_number"
     NEXT_TMP_NUMBER="$(expr "$_tmp_number" + 1)"
+    need_ok "failed to create temp number"
     assert_nz "$NEXT_TMP_NUMBER" "NEXT_TMP_NUMBER"
     RETVAL="$_tmp_name"
 }
 
 make_temp_dir() {
-    mkdir -p "$temp_dir"
-    need_ok "failed to make temp dir '$temp_dir'"
+    ensure mkdir -p "$temp_dir"
 
-    make_temp_name
+    ensure make_temp_name
     local _tmp_name="$temp_dir/$RETVAL"
-    mkdir -p "$_tmp_name"
-    need_ok "couldn't make temp dir '$_tmp_name'"
+    ensure mkdir -p "$_tmp_name"
     RETVAL="$_tmp_name"
 }
 
@@ -784,16 +766,15 @@ check_sums() {
     local _sumfile_dirname="$(dirname "$_sumfile")"
     assert_nz "$_sumfile_dirname" "sumfile_dirname"
     if command -v "$sha256sum_cmd" > /dev/null 2>&1; then
-	(cd "$_sumfile_dirname" && "$sha256sum_cmd" -c "$_workdir/tmpsums" > /dev/null)
+	(run cd "$_sumfile_dirname" && run "$sha256sum_cmd" -c "$_workdir/tmpsums" > /dev/null)
     elif command -v shasum > /dev/null 2>&1; then
-	(cd "$_sumfile_dirname" && shasum -c -a 256 "$_workdir/tmpsums" > /dev/null)
+	(run cd "$_sumfile_dirname" && run shasum -c -a 256 "$_workdir/tmpsums" > /dev/null)
     else
 	err "need either sha256sum or shasum"
     fi
     local _sum_retval=$?
 
-    rm -R "$_workdir"
-    need_ok "couldn't delete workdir '$_workdir'"
+    run rm -R "$_workdir" || return 1
 
     return $_sum_retval
 }
@@ -804,16 +785,17 @@ create_sum() {
 
     local _sum="none"
     if command -v "$sha256sum_cmd" > /dev/null 2>&1; then
-	_sum="$("$sha256sum_cmd" "$_input" | head -c 40)"
-	need_ok "sha256sum failed"
+	_sum="$(run "$sha256sum_cmd" "$_input" | run head -c 40)"
     elif command -v shasum > /dev/null 2>&1; then
-	_sum="$(shasum -a 256 "$_input" | head -c 40)"
-	need_ok "shasum failed"
+	_sum="$(run shasum -a 256 "$_input" | run head -c 40)"
     else
 	err "need either sha256sum or shasum"
     fi
+    local _sum_retval=$?
+    assert_nz "$_sum" "sum"
 
-    printf "$_sum"
+    ensure printf "$_sum"
+    return  $_sum_retval
 }
 
 need_shasum_cmd() {
@@ -937,28 +919,26 @@ check_sig() {
 
     # Convert the armored key to .gpg format so it works with --keyring
     verbose_say "converting armored key to gpg"
-    gpg --dearmor "$_workdir/key.asc"
+    run gpg --dearmor "$_workdir/key.asc"
     if [ $? != 0 ]; then
-	rm -R "$_workdir"
+	ignore rm -R "$_workdir"
 	return 1
     fi
 
     verbose_say "verifying signature '$_sig_file'"
     local _output="$(gpg --keyring "$_workdir/key.asc.gpg" --verify "$_sig_file" 2>&1)"
     if [ $? != 0 ]; then
-	echo "$_output"
+	ignore echo "$_output"
 	say_err "signature verification failed"
-	rm -R "$_workdir"
+	ignore rm -R "$_workdir"
 	return 1
     fi
 
     if [ "$_quiet" = false -o "$flag_verbose" = true ]; then
-	echo "$_output"
+	ensure echo "$_output"
     fi
 
-    rm -R "$_workdir"
-    need_ok "failed to delete workdir"
-    return 0
+    run rm -R "$_workdir" || return 1
 }
 
 # Downloads a remote file, its checksum, and signature and verifies them.
@@ -983,7 +963,7 @@ download_and_check() {
 
     download_checksum_for "$_remote_name" "$_workdir/$_remote_basename"
     if [ $? != 0 ]; then
-	rm -R "$_workdir"
+	ignore rm -R "$_workdir"
 	return 1
     fi
 
@@ -1001,8 +981,7 @@ download_and_check() {
 	verbose_say "new update hash: $_cache_name"
 
 	if [ "$_cache_name" = "$_update_hash" ]; then
-	    rm -R "$_workdir"
-	    need_ok "failed to remove workdir"
+	    run rm -R "$_workdir" || return 1
 	    # NB: Return code 2 is successful here!
 	    return 20
 	else
@@ -1010,8 +989,7 @@ download_and_check() {
 	    echo "$_cache_name" > "$_update_hash_file"
 	    if [ $? != 0 ]; then
 		say_err "failed to write update hash to file"
-		rm -R "$_workdir"
-		need_ok "failed to remove workdir"
+		ignore rm -R "$_workdir"
 		return 1
 	    fi
 	fi
@@ -1020,30 +998,29 @@ download_and_check() {
     # Create a cache directory under dl_dir for this download, based off the content hash
     local _cache_dir="$dl_dir/$_cache_name"
     verbose_say "cache dir: $_cache_dir"
-    mkdir -p "$_cache_dir"
+    run mkdir -p "$_cache_dir"
     if [ $? != 0 ]; then
-	rm -R "$_workdir"
 	say_err "failed to create download directory"
+	ignore rm -R "$_workdir"
 	return 1
     fi
 
     # Move the checksum into the cache. -f because the file may
     # already exist from previous download.
     verbose_say "moving '$_workdir/$_remote_basename.sha256' to '$_cache_dir/$_remote_basename.sha256'"
-    mv -f "$_workdir/$_remote_basename.sha256" "$_cache_dir/$_remote_basename.sha256"
+    run mv -f "$_workdir/$_remote_basename.sha256" "$_cache_dir/$_remote_basename.sha256"
     if [ $? != 0 ]; then
-	rm -R "$_workdir"
-	rm -R "$_cache_dir"
 	say_err "failed to move checksum into download cache"
+	ignore rm -R "$_workdir"
+	ignore rm -R "$_cache_dir"
 	return 1
     fi
 
     # Done with the workdir
-    rm -R "$_workdir"
+    run rm -R "$_workdir"
     if [ $? != 0 ]; then
 	say_err "couldn't delete workdir '$_workdir'"
-	rm -R "$_cache_dir"
-	# Ignore errors
+	ignore rm -R "$_cache_dir"
 	return 1
     fi
 
@@ -1055,8 +1032,7 @@ download_and_check() {
     check_file_and_sig "$_cache_dir/$_remote_basename" "$_quiet"
     if [ $? != 0 ]; then
 	# Whatever's in the cache doesn't add up. Delete it.
-	rm -R "$_cache_dir"
-	# Ignore errors
+	ignore rm -R "$_cache_dir"
 	return 1
     fi
 
@@ -1081,22 +1057,22 @@ download_checksum_for() {
     verbose_say "download work dir: $_workdir"
 
     verbose_say "downloading '$_remote_sums' to '$_workdir'"
-    (cd "$_workdir" && curl -s -f -O "$_remote_sums")
+    (run cd "$_workdir" && run curl -s -f -O "$_remote_sums")
     if [ $? != 0 ]; then
-	rm -R "$_workdir"
 	say_err "couldn't download checksum file '$_remote_sums'"
+	ignore rm -R "$_workdir"
 	return 1
     fi
 
     verbose_say "moving '$_workdir/$_remote_sums_basename' to '$_local_sums'"
-    mv -f "$_workdir/$_remote_sums_basename" "$_local_sums"
+    run mv -f "$_workdir/$_remote_sums_basename" "$_local_sums"
     if [ $? != 0 ]; then
-	rm -R "$_workdir"
 	say_err "couldn't move '$_workdir/$_remote_sums_basename' to '$_local_sums'"
+	ignore rm -R "$_workdir"
 	return 1
     fi
 
-    rm -R "$_workdir"
+    run rm -R "$_workdir"
     if [ $? != 0 ]; then
 	say_err "couldn't delete workdir '$_workdir'"
 	return 1
@@ -1117,7 +1093,7 @@ download_file_and_sig() {
     local _local_sig="$_local_name.asc"
 
     verbose_say "downloading '$_remote_sig' to '$_local_sig'"
-    (cd "$_local_dirname" && curl -s -C - -f -O "$_remote_sig")
+    (run cd "$_local_dirname" && run curl -s -C - -f -O "$_remote_sig")
     if [ $? != 0 ]; then
 	say_err "couldn't download signature file '$_remote_sig'"
 	return 1
@@ -1126,9 +1102,9 @@ download_file_and_sig() {
     verbose_say "downloading '$_remote_name' to '$_local_name'"
     # Invoke curl in a way that will resume if necessary
     if [ "$_quiet" = false ]; then
-	(cd "$_local_dirname" && curl -# -C - -f -O "$_remote_name")
+	(run cd "$_local_dirname" && run curl -# -C - -f -O "$_remote_name")
     else
-	(cd "$_local_dirname" && curl -s -C - -f -O "$_remote_name")
+	(run cd "$_local_dirname" && run curl -s -C - -f -O "$_remote_name")
     fi
     if [ $? != 0 ]; then
 	say_err "couldn't download '$_remote_name'"
@@ -1208,6 +1184,31 @@ need_ok() {
 
 assert_nz() {
     if [ -z "$1" ]; then err "assert_nz $2"; fi
+}
+
+# Run a command that should never fail. If the command fails execution
+# will immediately terminate with an error showing the failing
+# command.
+ensure() {
+    "$@"
+    need_ok "command failed: $*"
+}
+
+# This is just for indicating that commands' results are being
+# intentionally ignored. Usually, because it's being executed
+# as part of error handling.
+ignore() {
+    run "$@"
+}
+
+# Runs a command and prints it to stderr if it fails.
+run() {
+    "$@"
+    local _retval=$?
+    if [ $_retval != 0 ]; then
+	say_err "command failed: $*"
+    fi
+    return $_retval
 }
 
 assert_cmds() {
