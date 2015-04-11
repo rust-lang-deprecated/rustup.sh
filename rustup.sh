@@ -684,7 +684,7 @@ get_remote_installer_location_from_manifest() {
 		    ;;
 
 		nightly-* | beta-* | stable-* )
-		    extract_channel_and_date_from_toolchain "$_toolchain"
+		    extract_channel_and_date_from_toolchain "$_toolchain" || return 1
 		    local _channel="$RETVAL_CHANNEL"
 		    local _date="$RETVAL_DATE"
 		    assert_nz "$_channel" "channel"
