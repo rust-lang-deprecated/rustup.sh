@@ -23,6 +23,24 @@
 # This doesn't use -e because it makes it hard to control the
 # presentation of and response to errors.
 #
+# `set -u` is on, which means undefined variables are errors.
+# Generally when evaluating a variable that may not exist I'll
+# write `${mystery_variable-}`, which results in "" if the name
+# is undefined.
+#
+# Every command should be expected to return 0 on success, and
+# non-zero on failure. In one case, for `download_and_check`, the
+# error code needs to be interpreted more carefully because there are
+# multiple successful return codes. Additional return values may be
+# passed the `$RETVAL` global or further `RETVAL_FOO` globals as
+# needed.
+#
+# Most commands are executed via wrappers that provide extra diagnostics
+# and error handling: `run`, which prints the command on failure, and
+# returns the error code, `ignore` which does the same, but is used
+# to indicate the error code won't be handled, and `ensure`, which
+# prints the command on failure, and also exits the process.
+#
 # Pass errors on on: `run cmd arg1 arg2 || return 1`. `run` will run
 # the command, printing it if it fails; the `|| return 1` passes the
 # error on to the caller. `ensure cmd arg1 arg1`, runs the command,
@@ -32,14 +50,11 @@
 #
 # This code is very careful never to create empty paths. Any time a
 # new string that will be used as a path is produced, it is checked
-# with `assert_nz`.
+# with `assert_nz`. Likewise, pretty much any time a string is
+# constructed via command invocation it needs to be tested against
+# the empty string.
 #
 # Temporary files must be carefully deleted on every error path.
-#
-# `set -u` is on, which means undefined variables are errors.
-# Generally when evaluating a variable that may not exist I'll
-# write `${mystery_variable-}`, which results in "" if the name
-# is undefined.
 
 set -u # Undefined variables are errors
 
