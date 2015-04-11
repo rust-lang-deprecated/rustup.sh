@@ -222,6 +222,7 @@ handle_command_line_args() {
     local _channel=""
     local _help=false
     local _revision=""
+    local _spec=""
 
     for arg in "$@"; do
 	case "$arg" in
@@ -260,6 +261,8 @@ handle_command_line_args() {
 	    _date="$(get_value_arg "$arg")"
 	elif is_value_arg "$arg" "revision"; then
 	    _revision="$(get_value_arg "$arg")"
+	elif is_value_arg "$arg" "spec"; then
+	    _spec="$(get_value_arg "$arg")"
 	fi
     done
 
@@ -290,7 +293,16 @@ handle_command_line_args() {
 	fi
     fi
 
-    if [ -z "$_channel" -a -z "$_revision" ]; then
+    if [ -n "$_spec" ]; then
+	if [ -n "$_channel" ]; then
+	    err "the --spec flag may not be combined with --channel"
+	fi
+	if [ -n "$_revision" ]; then
+	    err "the --spec flag may not be combined with --revision"
+	fi
+    fi
+
+    if [ -z "$_channel" -a -z "$_revision" -a -z "$_spec" ]; then
 	_channel="$default_channel"
     fi
 
@@ -305,7 +317,10 @@ handle_command_line_args() {
 	fi
     elif [ -n "$_revision" ]; then
 	_toolchain="$_revision"
+    elif [ -n "$_spec" ]; then
+	_toolchain="$_spec"
     fi
+    assert_nz "$_toolchain" "toolchain"
 
     # Make sure our data directory exists and is the right format
     initialize_metadata
@@ -535,7 +550,7 @@ determine_remote_rust_installer_location() {
 	    local _manifest_file="$RETVAL"
 	    assert_nz "$_manifest_file" "manifest file"
 	    local _manifest_cache="$RETVAL_CACHE"
-	    assert_n "$_manifest_cache" "manifest cache"
+	    assert_nz "$_manifest_cache" "manifest cache"
 	    get_remote_installer_location_from_manifest "$_toolchain" "$_manifest_file" rust "$rust_dist_dir"
 	    RETVAL="$RETVAL"
 	    verbose_say "deleting cache dir $_manifest_cache"
@@ -1060,6 +1075,7 @@ Options:
      --channel=(stable|beta|release)   Install from channel (default beta)
      --date=<YYYY-MM-DD>               Install from archives
      --revision=<version-number>       Install a specific release
+     --spec=<toolchain-spec>           Install from toolchain spec
      --prefix=<path>                   Install to a specific location (default /usr/local)
      --uninstall                       Uninstall instead of install
      --save                            Save downloads for future reuse

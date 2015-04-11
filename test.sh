@@ -784,6 +784,16 @@ save_and_no_save() {
 }
 runtest save_and_no_save
 
+install_from_spec() {
+    try rustup.sh --prefix="$TEST_PREFIX" --spec=nightly
+    expect_output_ok "hash-nightly-2" "$TEST_PREFIX/bin/rustc" --version
+    try rustup.sh --prefix="$TEST_PREFIX" --spec=nightly-2015-01-01
+    expect_output_ok "hash-nightly-1" "$TEST_PREFIX/bin/rustc" --version
+    try rustup.sh --prefix="$TEST_PREFIX" --spec=1.0.0
+    expect_output_ok "hash-stable-1" "$TEST_PREFIX/bin/rustc" --version
+}
+runtest install_from_spec
+
 echo
 echo "SUCCESS"
 echo
