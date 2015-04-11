@@ -57,10 +57,13 @@ set_globals() {
 
     # Install prefix can be set by the environment
     default_prefix="${RUSTUP_PREFIX-/usr/local}"
+    default_save=false
+    if [ -n "${RUSTUP_SAVE-}" ]; then
+	default_save=true
+    fi
 
     # Data locations
     version_file="$rustup_dir/rustup-version"
-    manifests_dir="$rustup_dir/manifests"
     installer_dir="$rustup_dir/installers"
     temp_dir="$rustup_dir/tmp"
     dl_dir="$rustup_dir/dl"
@@ -213,7 +216,7 @@ initialize_metadata() {
 }
 
 handle_command_line_args() {
-    local _save=false
+    local _save="$default_save"
     local _date=""
     local _prefix="$default_prefix"
     local _uninstall=false
@@ -423,13 +426,13 @@ install_toolchain_from_dist() {
 
     # Download and install toolchain
     say "downloading toolchain for '$_toolchain'"
-    download_and_check "$_remote_rust_installer" "$_workdir/$_rust_installer_name" false
+    download_and_check "$_remote_rust_installer" false
     if [ $? != 0 ]; then
 	rm -R "$_workdir"
 	return 1
     fi
+    local _installer_file="$RETVAL"
 
-    local _installer_file="$_workdir/$_rust_installer_name"
     install_toolchain "$_toolchain" "$_installer_file" "$_workdir" "$_prefix"
     if [ $? != 0 ]; then
 	rm -R "$_workdir"
@@ -516,7 +519,6 @@ determine_remote_rust_installer_location() {
 	    if [ $? != 0 ]; then
 		return 1
 	    fi
-	    get_local_rust_manifest_name "$_toolchain"
 	    local _manifest_file="$RETVAL"
 	    assert_nz "$_manifest_file" "manifest file"
 	    get_remote_installer_location_from_manifest "$_toolchain" "$_manifest_file" rust "$rust_dist_dir"
@@ -560,34 +562,30 @@ download_rust_manifest() {
 
     esac
 
-    verbose_say "creating manifests dir '$manifests_dir'"
-    mkdir -p "$manifests_dir"
-    need_ok "couldn't create manifests dir"
-
-    get_local_rust_manifest_name "$_toolchain"
-    local _local_rust_manifest="$RETVAL"
-    assert_nz "$_local_rust_manifest" "local rust manifest"
-
-    download_manifest "$_toolchain" "rust" "$_remote_rust_manifest" "$_local_rust_manifest"
+    download_manifest "$_toolchain" "rust" "$_remote_rust_manifest"
     if [ $? != 0 ]; then
 	return 1
     fi
+    local _local_rust_manifest="$RETVAL"
+    assert_nz "$_local_rust_manifest" "local rust manifest"
+    RETVAL="$_local_rust_manifest"
 }
 
 download_manifest()  {
     local _toolchain="$1"
     local _name="$2"
     local _remote_manifest="$3"
-    local _local_manifest="$4"
 
     verbose_say "remote $_name manifest: $_remote_manifest"
-    verbose_say "local $_name manifest: $_local_manifest"
 
     say "downloading manifest for '$_toolchain'"
-    download_and_check "$_remote_manifest" "$_local_manifest" true
+    download_and_check "$_remote_manifest" true
     if [ $? != 0 ]; then
 	return 1
     fi
+    local _local_rust_manifest="$RETVAL"
+    assert_nz "$_local_rust_manifest" "local rust manifest"
+    RETVAL="$_local_rust_manifest"
 }
 
 get_remote_installer_location_from_manifest() {
@@ -882,11 +880,7 @@ check_sig() {
 # Downloads a remote file, its checksum, and signature and verifies them
 download_and_check() {
     local _remote_name="$1"
-    local _local_name="$2"
-    local _quiet="$3"
-
-    local _remote_sums="$_remote_name.sha256"
-    local _local_sums="$_local_name.sha256"
+    local _quiet="$2"
 
     local _remote_basename="$(basename "$_remote_name")"
 
@@ -900,26 +894,54 @@ download_and_check() {
 	rm -R "$_workdir"
 	return 1
     fi
-    download_file_and_sig "$_remote_name" "$_workdir/$_remote_basename" "$_quiet"
+
+    # Create a cache directory under dl_dir for this download, based off the content hash
+    local _cache_name="$(create_sum "$_workdir/$_remote_basename.sha256" | head -c 20)"
+    need_ok "failed to name cache dir from checksum"
+    assert_nz "$_cache_name" "cache_name"
+    local _cache_dir="$dl_dir/$_cache_name"
+    verbose_say "cache dir: $_cache_dir"
+    mkdir -p "$_cache_dir"
     if [ $? != 0 ]; then
 	rm -R "$_workdir"
-	return 1
-    fi
-    check_file_and_sig "$_workdir/$_remote_basename" "$_quiet"
-    if [ $? != 0 ]; then
-	rm -R "$_workdir"
+	say_err "failed to create download directory"
 	return 1
     fi
 
-    mv -f "$_workdir/$_remote_basename" "$_local_name"
-    need_ok "failed to mv $_local_name"
-    mv -f "$_workdir/$_remote_basename.sha256" "$_local_name.sha256"
-    need_ok "failed to mv $_local_name.sha256"
-    mv -f "$_workdir/$_remote_basename.asc" "$_local_name.asc"
-    need_ok "failed to mv $_local_name.asc"
+    # Move the checksum into the cache. -f because the file may
+    # already exist from previous download.
+    verbose_say "moving '$_workdir/$_remote_basename.sha256' to '$_cache_dir/$_remote_basename.sha256'"
+    mv -f "$_workdir/$_remote_basename.sha256" "$_cache_dir/$_remote_basename.sha256"
+    if [ $? != 0 ]; then
+	rm -R "$_workdir"
+	rm -R "$_cache_dir"
+	say_err "failed to move checksum into download cache"
+	return 1
+    fi
 
+    # Done with the workdir
     rm -R "$_workdir"
-    need_ok "couldn't delete workdir '$_workdir'"
+    if [ $? != 0 ]; then
+	say_err "couldn't delete workdir '$_workdir'"
+	rm -R "$_cache_dir"
+	# Ignore errors
+	return 1
+    fi
+
+    download_file_and_sig "$_remote_name" "$_cache_dir" "$_quiet"
+    if [ $? != 0 ]; then
+	# Leave the cache dir to resume the download later
+	return 1
+    fi
+    check_file_and_sig "$_cache_dir/$_remote_basename" "$_quiet"
+    if [ $? != 0 ]; then
+	# Whatever's in the cache doesn't add up. Delete it.
+	rm -R "$_cache_dir"
+	# Ignore errors
+	return 1
+    fi
+
+    RETVAL="$_cache_dir/$_remote_basename"
 }
 
 download_checksum_for() {
@@ -963,101 +985,33 @@ download_checksum_for() {
 
 download_file_and_sig() {
     local _remote_name="$1"
-    local _local_name="$2"
+    local _local_dirname="$2"
     local _quiet="$3"
 
-    local _remote_sums="$_remote_name.sha256"
-    local _local_sums="$_local_name.sha256"
+    local _remote_basename="$(basename "$_remote_name")"
+    assert_nz "$_remote_basename" "remote basename"
+
+    local _local_name="$_local_dirname/$_remote_basename"
 
     local _remote_sig="$_remote_name.asc"
     local _local_sig="$_local_name.asc"
 
-    local _remote_basename="$(basename "$_remote_name")"
-    local _remote_sums_basename="$_remote_basename.sha256"
-    local _remote_sig_basename="$_remote_basename.asc"
-    assert_nz "$_remote_basename" "remote basename"
-
-    local _local_basename="$(basename "$_local_name")"
-    assert_nz "$_local_basename" "local basename"
-
-    make_temp_dir
-    local _workdir="$RETVAL"
-    assert_nz "$_workdir" "workdir"
-    verbose_say "download work dir: $_workdir"
-
-    verbose_say "downloading '$_remote_sig' to '$_workdir'"
-    (cd "$_workdir" && curl -s -f -O "$_remote_sig")
+    verbose_say "downloading '$_remote_sig' to '$_local_sig'"
+    (cd "$_local_dirname" && curl -s -C - -f -O "$_remote_sig")
     if [ $? != 0 ]; then
-	rm -R "$_workdir"
 	say_err "couldn't download signature file '$_remote_sig'"
 	return 1
     fi
 
-    # Create the dl directory for this artifact based
-    # on the checksum so we can find it to resume later.
-    verbose_say "local checksums: $_local_name.sha256"
-    if [ ! -e "$_local_name.sha256" ]; then
-	err "local checksum for remote file not in expected location"
-    fi
-    local _dl_dir="$(create_sum "$_local_name.sha256" | head -c 10)"
-    need_ok "failed to calculate temporary download file name"
-    verbose_say "dl dir: $dl_dir/$_dl_dir"
-    mkdir -p "$dl_dir/$_dl_dir"
-    if [ $? != 0 ]; then
-	rm -R "$_workdir"
-	say_err "failed to create temporary download dir"
-	return 1
-    fi
-
-    verbose_say "downloading '$_remote_name' to '$dl_dir/$_dl_dir'"
+    verbose_say "downloading '$_remote_name' to '$_local_name'"
     # Invoke curl in a way that will resume if necessary
     if [ "$_quiet" = false ]; then
-	(cd "$dl_dir/$_dl_dir" && curl -# -C - -f -O "$_remote_name")
+	(cd "$_local_dirname" && curl -# -C - -f -O "$_remote_name")
     else
-	(cd "$dl_dir/$_dl_dir" && curl -s -C - -f -O "$_remote_name")
+	(cd "$_local_dirname" && curl -s -C - -f -O "$_remote_name")
     fi
     if [ $? != 0 ]; then
-	rm -R "$_workdir"
-	rm -R "$dl_dir/$_dl_dir"
 	say_err "couldn't download '$_remote_name'"
-	return 1
-    fi
-
-    mv "$dl_dir/$_dl_dir/$_remote_basename" "$_workdir/$_remote_basename"
-    if [ $? != 0 ]; then
-	rm -R "$_workdir"
-	rm -R "$dl_dir/$_dl_dir"
-	say_err "couldn't move file from dl dir to work dir"
-	return 1
-    fi
-
-    rm -R "$dl_dir/$_dl_dir"
-    if [ $? != 0 ]; then
-	rm -R "$_workdir"
-	say_err "failed to remove dl dir"
-	return 1
-    fi
-
-    verbose_say "moving '$_workdir/$_remote_basename' to '$_local_name'"
-    mv -f "$_workdir/$_remote_basename" "$_local_name"
-    if [ $? != 0 ]; then
-	rm -R "$_workdir"
-	say_err "couldn't move '$_workdir/$_remote_basename' to '$_local_name'"
-	return 1
-    fi
-
-    verbose_say "moving '$_workdir/$_remote_sig_basename' to '$_local_sig'"
-    mv -f "$_workdir/$_remote_sig_basename" "$_local_sig"
-    if [ $? != 0 ]; then
-	rm "$_local_name"
-	rm -R "$_workdir"
-	say_err "couldn't move '$_workdir/$_remote_sig_basename' to '$_local_sig'"
-	return 1
-    fi
-
-    rm -R "$_workdir"
-    if [ $? != 0 ]; then
-	say_err "couldn't delete workdir '$_workdir'"
 	return 1
     fi
 }
