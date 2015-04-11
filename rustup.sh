@@ -1103,11 +1103,30 @@ download_file_and_sig() {
     local _remote_sig="$_remote_name.asc"
     local _local_sig="$_local_name.asc"
 
+    # curl -C does not seem to work when the file already exists at 100%,
+    # so just delete it and redownload.
+    if [ -e "$_local_sig" ]; then
+	run rm "$_local_sig"
+	if [ $? != 0 ]; then
+	    say_err "failed to delete existing local signature for '$_remote_name'"
+	    return 1
+	fi
+    fi
+
     verbose_say "downloading '$_remote_sig' to '$_local_sig'"
     (run cd "$_local_dirname" && run curl -s -C - -f -O "$_remote_sig")
     if [ $? != 0 ]; then
 	say_err "couldn't download signature file '$_remote_sig'"
 	return 1
+    fi
+
+    # Again, because curl -C doesn't like a complete file, short circuit
+    # curl by checking the sum.
+    local _local_sums_file="$_local_dirname/$_remote_basename.sha256"
+    # Throwing away error text since this error is expected.
+    check_sums "$_local_sums_file" > /dev/null 2>&1
+    if [ $? = 0 ]; then
+	return 0
     fi
 
     verbose_say "downloading '$_remote_name' to '$_local_name'"
