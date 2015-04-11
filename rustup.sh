@@ -978,7 +978,7 @@ download_and_check() {
 
 	if [ "$_cache_name" = "$_update_hash" ]; then
 	    run rm -R "$_workdir" || return 1
-	    # NB: Return code 2 is successful here!
+	    # NB: Return code 20 is successful here!
 	    return 20
 	else
 	    # Write the update hash to file
