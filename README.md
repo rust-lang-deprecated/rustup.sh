@@ -63,7 +63,6 @@ rustup.sh --revision=1.0.0-beta
 
 ## Future work
 
-* Store downloads with --save.
 * GC old temp and cache files.
 * Rustup doesn't need to store manifests like it does.
 * Error on unknown command line options.
