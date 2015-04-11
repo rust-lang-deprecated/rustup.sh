@@ -710,8 +710,10 @@ extract_channel_and_date_from_toolchain() {
 	nightly-20[0-9][0-9]-[0-9][0-9]-[0-9][0-9] | \
 	beta-20[0-9][0-9]-[0-9][0-9]-[0-9][0-9] | \
 	stable-20[0-9][0-9]-[0-9][0-9]-[0-9][0-9] )
-	    local _channel="$(echo "$_toolchain" | cut -d- -f1)"
-	    local _date="$(echo "$_toolchain" | cut -d- -f2,3,4)"
+	    local _channel="$(ensure echo "$_toolchain" | ensure cut -d- -f1)"
+	    assert_nz "$_channel" "channel"
+	    local _date="$(ensure echo "$_toolchain" | ensure cut -d- -f2,3,4)"
+	    assert_nz "$_date" "date"
 	    RETVAL_CHANNEL="$_channel"
 	    RETVAL_DATE="$_date"
 	    ;;
