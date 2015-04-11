@@ -223,6 +223,7 @@ handle_command_line_args() {
     local _help=false
     local _revision=""
     local _spec=""
+    local _update_hash_file=""
 
     for arg in "$@"; do
 	case "$arg" in
@@ -263,6 +264,11 @@ handle_command_line_args() {
 	    _revision="$(get_value_arg "$arg")"
 	elif is_value_arg "$arg" "spec"; then
 	    _spec="$(get_value_arg "$arg")"
+	elif is_value_arg "$arg" "update-hash-file"; then
+	    # This option is used by multirust to short-circuit reinstalls
+	    # when the channel has not been updated by examining a content
+	    # hash in the update-hash-file
+	    _update_hash_file="$(get_value_arg "$arg")"
 	fi
     done
 
@@ -328,7 +334,7 @@ handle_command_line_args() {
     # OK, time to do the things
     local _succeeded=true
     if [ "$_uninstall" = false ]; then
-	update_toolchain "$_toolchain" "$_prefix" "$_save"
+	update_toolchain "$_toolchain" "$_prefix" "$_save" "$_update_hash_file"
 	if [ $? != 0 ]; then
 	    _succeeded=false
 	fi
@@ -398,6 +404,7 @@ update_toolchain() {
     local _toolchain="$1"
     local _prefix="$2"
     local _save="$3"
+    local _update_hash_file="$4"
 
     is_toolchain_installed "$_prefix"
     local _is_installed="$RETVAL"
@@ -408,13 +415,14 @@ update_toolchain() {
 	say "installing toolchain '$_toolchain'"
     fi
 
-    install_toolchain_from_dist "$_toolchain" "$_prefix" "$_save"
+    install_toolchain_from_dist "$_toolchain" "$_prefix" "$_save" "$_update_hash_file"
 }
 
 install_toolchain_from_dist() {
     local _toolchain="$1"
     local _prefix="$2"
     local _save="$3"
+    local _update_hash_file="$4"
 
     if [ "$using_insecure_dist_server" = "true" ]; then
 	# disabling https avoids rust#21293
@@ -436,13 +444,20 @@ install_toolchain_from_dist() {
 
     # Download and install toolchain
     say "downloading toolchain for '$_toolchain'"
-    download_and_check "$_remote_rust_installer" false
-    if [ $? != 0 ]; then
+    download_and_check "$_remote_rust_installer" false "$_update_hash_file"
+    local _retval=$?
+    if [ "$_retval" = 20 ]; then
+	say "'$_toolchain' is already up to date"
+	# Successful short-circuit using the update-hash
+	return 0
+    fi
+    if [ "$_retval" != 0 ]; then
 	return 1
     fi
     local _installer_file="$RETVAL"
     local _installer_cache="$RETVAL_CACHE"
-    assert_nz "$RETVAL_CACHE"
+    assert_nz "$_installer_file" "installer_file"
+    assert_nz "$_installer_cache" "installer_cache"
 
     # Create a temp directory to put the downloaded toolchain
     make_temp_dir
@@ -613,7 +628,7 @@ download_manifest()  {
     verbose_say "remote $_name manifest: $_remote_manifest"
 
     say "downloading manifest for '$_toolchain'"
-    download_and_check "$_remote_manifest" true
+    download_and_check "$_remote_manifest" true ""
     if [ $? != 0 ]; then
 	return 1
     fi
@@ -904,9 +919,13 @@ check_sig() {
 # and the path to it's directory in the cache in RETVAL_CACHE.
 #
 # The caller can decide to remove it from the cache by deleting RETVAL_CACHE.
+#
+# A return code of *20* indicates a successful short circuit from the
+# update hash.
 download_and_check() {
     local _remote_name="$1"
     local _quiet="$2"
+    local _update_hash_file="$3"
 
     local _remote_basename="$(basename "$_remote_name")"
 
@@ -921,10 +940,37 @@ download_and_check() {
 	return 1
     fi
 
-    # Create a cache directory under dl_dir for this download, based off the content hash
+    # This is the unique name of the cache, based on the content hash
     local _cache_name="$(create_sum "$_workdir/$_remote_basename.sha256" | head -c 20)"
-    need_ok "failed to name cache dir from checksum"
+    need_ok "failed to name cache name from checksum"
     assert_nz "$_cache_name" "cache_name"
+
+    # If the user already has this rev then don't redownload it
+    if [ -n "$_update_hash_file" ]; then
+	# NB: May fail if file does not exist
+	local _update_hash="$(cat "$_update_hash_file")"
+
+	verbose_say "provided update hash: $_update_hash"
+	verbose_say "new update hash: $_cache_name"
+
+	if [ "$_cache_name" = "$_update_hash" ]; then
+	    rm -R "$_workdir"
+	    need_ok "failed to remove workdir"
+	    # NB: Return code 2 is successful here!
+	    return 20
+	else
+	    # Write the update hash to file
+	    echo "$_cache_name" > "$_update_hash_file"
+	    if [ $? != 0 ]; then
+		say_err "failed to write update hash to file"
+		rm -R "$_workdir"
+		need_ok "failed to remove workdir"
+		return 1
+	    fi
+	fi
+    fi
+
+    # Create a cache directory under dl_dir for this download, based off the content hash
     local _cache_dir="$dl_dir/$_cache_name"
     verbose_say "cache dir: $_cache_dir"
     mkdir -p "$_cache_dir"
