@@ -794,6 +794,21 @@ install_from_spec() {
 }
 runtest install_from_spec
 
+update_hash_file() {
+    try rustup.sh --prefix="$TEST_PREFIX" --spec=nightly --update-hash-file="$TMP_DIR/update-hash"
+    expect_output_ok "'nightly' is already up to date" rustup.sh --prefix="$TEST_PREFIX" --spec=nightly --update-hash-file="$TMP_DIR/update-hash"
+}
+runtest update_hash_file
+
+update_hash_file2() {
+    set_current_dist_date 2015-01-01
+    try rustup.sh --prefix="$TEST_PREFIX" --spec=nightly --update-hash-file="$TMP_DIR/update-hash"
+    # Since the date changed, there's an update, and we should *not* see the short-circuit
+    set_current_dist_date 2015-01-02
+    expect_not_output_ok "'nightly' is already up to date" rustup.sh --prefix="$TEST_PREFIX" --spec=nightly --update-hash-file="$TMP_DIR/update-hash"
+}
+runtest update_hash_file2
+
 echo
 echo "SUCCESS"
 echo
