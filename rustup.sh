@@ -374,8 +374,7 @@ handle_command_line_args() {
     # This will not happen if we hit certain hard errors earlier.
     if [ "$_preserve_rustup_dir" = false ]; then
 	verbose_say "removing rustup home $rustup_dir"
-	rm -R "$rustup_dir"
-	# Ignore errors
+	ensure rm -R "$rustup_dir"
     else
 	verbose_say "leaving rustup home $rustup_dir"
     fi
@@ -497,12 +496,11 @@ install_toolchain_from_dist() {
 
     install_toolchain "$_toolchain" "$_installer_file" "$_workdir" "$_prefix"
     if [ $? != 0 ]; then
-	# Ignore errors
 	say_err "failed to install toolchain"
 	_failing=true
     fi
 
-    rm -R "$_workdir"
+    run rm -R "$_workdir"
     if [ $? != 0 ]; then
 	say_err "couldn't delete workdir"
 	_failing=true
@@ -532,7 +530,7 @@ install_toolchain() {
     local _installer_dir="$_workdir/$(basename "$_installer" | sed s/.tar.gz$//)"
 
     # Extract the toolchain
-    tar xzf "$_installer" -C "$_workdir"
+    run tar xzf "$_installer" -C "$_workdir"
     if [ $? != 0 ]; then
 	verbose_say "failed to extract installer"
 	return 1
@@ -543,7 +541,7 @@ install_toolchain() {
     verbose_say "installing toolchain to '$_toolchain_dir'"
     say "installing toolchain for '$_toolchain'"
 
-    sh "$_installer_dir/install.sh" --prefix="$_toolchain_dir" --disable-ldconfig
+    run sh "$_installer_dir/install.sh" --prefix="$_toolchain_dir" --disable-ldconfig
     if [ $? != 0 ]; then
 	verbose_say "failed to install toolchain"
 	return 1
