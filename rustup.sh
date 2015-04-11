@@ -19,6 +19,7 @@
 set -u # Undefined variables are errors
 
 main() {
+    assert_cmds
     set_globals
     handle_command_line_args "$@"
 }
@@ -1163,27 +1164,28 @@ assert_nz() {
     if [ -z "$1" ]; then err "assert_nz $2"; fi
 }
 
-# Ensure various commands exist
-need_cmd dirname
-need_cmd basename
-need_cmd mkdir
-need_cmd cat
-need_cmd curl
-need_cmd mktemp
-need_cmd rm
-need_cmd egrep
-need_cmd grep
-need_cmd file
-need_cmd uname
-need_cmd tar
-need_cmd sed
-need_cmd sh
-need_cmd mv
-need_cmd awk
-need_cmd cut
-need_cmd sort
-need_cmd date
-need_cmd head
-need_cmd printf
+assert_cmds() {
+    need_cmd dirname
+    need_cmd basename
+    need_cmd mkdir
+    need_cmd cat
+    need_cmd curl
+    need_cmd mktemp
+    need_cmd rm
+    need_cmd egrep
+    need_cmd grep
+    need_cmd file
+    need_cmd uname
+    need_cmd tar
+    need_cmd sed
+    need_cmd sh
+    need_cmd mv
+    need_cmd awk
+    need_cmd cut
+    need_cmd sort
+    need_cmd date
+    need_cmd head
+    need_cmd printf
+}
 
 main "$@"
