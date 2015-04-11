@@ -977,7 +977,7 @@ download_and_check() {
     # If the user already has this rev then don't redownload it
     if [ -n "$_update_hash_file" ]; then
 	# NB: May fail if file does not exist
-	local _update_hash="$(cat "$_update_hash_file")"
+	local _update_hash="$(cat "$_update_hash_file" 2> /dev/null)"
 
 	verbose_say "provided update hash: $_update_hash"
 	verbose_say "new update hash: $_cache_name"
