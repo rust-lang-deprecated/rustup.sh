@@ -883,7 +883,6 @@ check_sig() {
     local _quiet="$2"
 
     if ! command -v gpg > /dev/null 2>&1; then
-	say "gpg not found. not verifying signatures"
 	return
     fi
 
