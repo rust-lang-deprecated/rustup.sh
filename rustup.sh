@@ -206,7 +206,7 @@ initialize_metadata() {
 	if [ "$_current_version" != "$metadata_version" ]; then
 	    # Wipe the out of date metadata
 	    say "rustup metadata is out of date. deleting."
-	    rm -Rf "$rustup_dir"
+	    rm -R "$rustup_dir"
 	    need_ok "failed to remove $rustup_dir"
 	    mkdir -p "$rustup_dir"
 	    need_ok "failed to create $rustup_dir"
