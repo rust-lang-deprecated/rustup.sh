@@ -21,10 +21,12 @@
 # Oh, my goodness, error handling. It's terrifying.
 #
 # This doesn't use -e because it makes it hard to control the
-# presentation of and response to errors. So most every command
-# needs to be followed with a check of `$?`. Commands that
-# should more-or-less never fail are either called via `ensure`,
-# or followed by a call to `need_ok`.
+# presentation of and response to errors.
+#
+# Pass errors on on: `run cmd arg1 arg2 || return 1`. `run` will run
+# the command, printing it if it fails; the `|| return 1` passes the
+# error on to the caller. `ensure cmd arg1 arg1`, runs the command,
+# printing it if it fails, and termining execution.
 #
 # Don't make typos. You just have to be better than that.
 #
