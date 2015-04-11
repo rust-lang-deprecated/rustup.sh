@@ -374,7 +374,7 @@ handle_command_line_args() {
     # OK, time to do the things
     local _succeeded=true
     if [ "$_uninstall" = false ]; then
-	update_toolchain "$_toolchain" "$_prefix" "$_save" "$_update_hash_file"
+	install_toolchain_from_dist "$_toolchain" "$_prefix" "$_save" "$_update_hash_file"
 	if [ $? != 0 ]; then
 	    _succeeded=false
 	fi
@@ -438,25 +438,6 @@ validate_date() {
 }
 
 # Updating toolchains
-
-# Returns 0 on success, 1 on error
-update_toolchain() {
-    local _toolchain="$1"
-    local _prefix="$2"
-    local _save="$3"
-    local _update_hash_file="$4"
-
-    is_toolchain_installed "$_prefix"
-    local _is_installed="$RETVAL"
-
-    if [ "$_is_installed" = true ]; then
-	say "updating existing install to '$_toolchain'"
-    else
-	say "installing toolchain '$_toolchain'"
-    fi
-
-    install_toolchain_from_dist "$_toolchain" "$_prefix" "$_save" "$_update_hash_file"
-}
 
 # Returns 0 on success, 1 on error
 install_toolchain_from_dist() {
@@ -580,20 +561,6 @@ remove_toolchain() {
 	say "no toolchain installed at '$_prefix'"
     fi
 }
-
-is_toolchain_installed() {
-    local _prefix="$1"
-
-    verbose_say "looking for installed toolchain '$_toolchain'"
-
-    if [ -e "$_prefix/lib/rustlib" ]; then
-	RETVAL=true
-	return
-    fi
-
-    RETVAL=false
-}
-
 
 # Manifest interface
 
