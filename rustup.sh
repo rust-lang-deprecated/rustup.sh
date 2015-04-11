@@ -896,9 +896,18 @@ get_architecture() {
 
     # Detect 64-bit linux with 32-bit userland
     if [ $_ostype = unknown-linux-gnu -a $_cputype = x86_64 ]; then
-	file -L "$SHELL" | grep -q "x86[_-]64"
-	if [ $? != 0 ]; then
-	    local _cputype=i686
+	# $SHELL does not exist in standard 'sh', so probably only exists
+	# if configure is running in an interactive bash shell. /usr/bin/env
+	# exists *everywhere*.
+	local _bin_to_probe="$SHELL"
+	if [ -z "$_bin_to_probe" -a -e "/usr/bin/env" ]; then
+	    _bin_to_probe="/usr/bin/env"
+	fi
+	if [ -n "$_bin_to_probe" ]; then
+	    file -L "$_bin_to_probe" | grep -q "x86[_-]64"
+	    if [ $? != 0 ]; then
+		local _cputype=i686
+	    fi
 	fi
     fi
 
