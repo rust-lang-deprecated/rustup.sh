@@ -696,7 +696,7 @@ runtest save_with_date
 out_of_date_metadata() {
     try rustup.sh --prefix="$TEST_PREFIX" --save
     echo "bogus" > "$RUSTUP_HOME/rustup-version"
-    expect_output_ok "rustup metadata is out of date" rustup.sh --prefix="$TEST_PREFIX" --save
+    expect_output_ok "metadata is out of date" rustup.sh --prefix="$TEST_PREFIX" --save
 }
 runtest out_of_date_metadata
 

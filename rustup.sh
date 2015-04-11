@@ -226,8 +226,8 @@ initialize_metadata() {
 	local _current_version="$(cat "$version_file")"
 	verbose_say "got metadata version $_current_version"
 	if [ "$_current_version" != "$metadata_version" ]; then
-	    # Wipe the out of date metadata
-	    say "rustup metadata is out of date. deleting."
+	    # Wipe the out of date metadata.
+	    say "metadata is out of date. deleting."
 	    rm -R "$rustup_dir"
 	    need_ok "failed to remove $rustup_dir"
 	    mkdir -p "$rustup_dir"
