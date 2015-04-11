@@ -9,12 +9,34 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
-# Coding conventions:
+# # Coding conventions
 #
 # * globals are `like_this`.
 # * locals are `_like_this`.
 # * exported values are `LIKE_THIS`.
 # * out-of-band return values are put into `RETVAL`.
+#
+# # Error handling
+#
+# Oh, my goodness, error handling. It's terrifying.
+#
+# This doesn't use -e because it makes it hard to control the
+# presentation of and response to errors. So most every command
+# needs to be followed with a check of `$?` or a call to `need_ok`
+# for commands that should never fail.
+#
+# Don't make typos. You just have to be better than that.
+#
+# This code is very careful never to create empty paths. Any time a
+# new string that will be used as a path is produced, it is checked
+# with `assert_nz`.
+#
+# Temporary files must be carefully deleted on every error path.
+#
+# `set -u` is on, which means undefined variables are errors.
+# Generally when evaluating a variable that may not exist I'll
+# write `${mystery_variable-}`, which results in "" if the name
+# is undefined.
 
 set -u # Undefined variables are errors
 
@@ -167,7 +189,6 @@ Mve696B5tlHyc1KxjHR6w9GRsh4=
     # This is just used by test.sh for testing sha256sum fallback to shasum
     sha256sum_cmd="${__RUSTUP_MOCK_SHA256SUM-sha256sum}"
 
-    # Check for some global command-line options
     flag_verbose=false
     flag_yes=false
 
@@ -200,6 +221,7 @@ initialize_metadata() {
     if [ ! -e "$version_file" ]; then
 	verbose_say "writing metadata version $metadata_version"
 	echo "$metadata_version" > "$version_file"
+	need_ok "failed to write metadata version"
     else
 	local _current_version="$(cat "$version_file")"
 	verbose_say "got metadata version $_current_version"
@@ -211,6 +233,7 @@ initialize_metadata() {
 	    mkdir -p "$rustup_dir"
 	    need_ok "failed to create $rustup_dir"
 	    echo "$metadata_version" > "$version_file"
+	    need_ok "failed to write metadata version"
 	fi
     fi
 }
@@ -401,6 +424,7 @@ validate_date() {
 
 # Updating toolchains
 
+# Returns 0 on success, 1 on error
 update_toolchain() {
     local _toolchain="$1"
     local _prefix="$2"
@@ -419,6 +443,7 @@ update_toolchain() {
     install_toolchain_from_dist "$_toolchain" "$_prefix" "$_save" "$_update_hash_file"
 }
 
+# Returns 0 on success, 1 on error
 install_toolchain_from_dist() {
     local _toolchain="$1"
     local _prefix="$2"
@@ -446,6 +471,9 @@ install_toolchain_from_dist() {
     # Download and install toolchain
     say "downloading toolchain for '$_toolchain'"
     download_and_check "$_remote_rust_installer" false "$_update_hash_file"
+    # Hey! I need to check $? twice here, so it has to be
+    # assigned to a named variable, otherwise the second
+    # check against $? will not be what I expect.
     local _retval=$?
     if [ "$_retval" = 20 ]; then
 	say "'$_toolchain' is already up to date"
@@ -466,18 +494,20 @@ install_toolchain_from_dist() {
     assert_nz "$_workdir" "workdir"
     verbose_say "install work dir: $_workdir"
 
+    # There next few statements may all fail independently.
+    local _failing=false
+
     install_toolchain "$_toolchain" "$_installer_file" "$_workdir" "$_prefix"
     if [ $? != 0 ]; then
-	rm -R "$_workdir"
 	# Ignore errors
 	say_err "failed to install toolchain"
-	return 1
+	_failing=true
     fi
 
     rm -R "$_workdir"
     if [ $? != 0 ]; then
 	say_err "couldn't delete workdir"
-	return 1
+	_failing=true
     fi
 
     # Throw away the cache if not --save
@@ -486,8 +516,12 @@ install_toolchain_from_dist() {
 	rm -R "$_installer_cache"
 	if [ $? != 0 ]; then
 	    say_err "couldn't delete cache dir"
-	    return 1
+	    _failing=true
 	fi
+    fi
+
+    if [ "$_failing" = true ]; then
+	return 1
     fi
 }
 
@@ -630,6 +664,8 @@ download_manifest()  {
 
     say "downloading manifest for '$_toolchain'"
     download_and_check "$_remote_manifest" true ""
+    # It's not possible for $? = 20 here, because the update_hash_file
+    # param is empty
     if [ $? != 0 ]; then
 	return 1
     fi
