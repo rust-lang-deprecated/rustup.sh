@@ -725,12 +725,6 @@ extract_channel_and_date_from_toolchain() {
     esac
 }
 
-get_local_rust_manifest_name() {
-    local _toolchain="$1"
-
-    RETVAL="$manifests_dir/channel-rust-$_toolchain"
-}
-
 # Tools
 
 # FIXME: Temp names based on pid need to worry about pid recycling
