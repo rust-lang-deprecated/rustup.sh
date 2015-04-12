@@ -478,8 +478,10 @@ install_toolchain_from_dist() {
     fi
     local _installer_file="$RETVAL"
     local _installer_cache="$RETVAL_CACHE"
+    local _update_hash="$RETVAL_UPDATE_HASH"
     assert_nz "$_installer_file" "installer_file"
     assert_nz "$_installer_cache" "installer_cache"
+    assert_nz "$_update_hash" "update_hash"
 
     # Create a temp directory to put the downloaded toolchain
     make_temp_dir
@@ -512,6 +514,15 @@ install_toolchain_from_dist() {
 	fi
     fi
 
+    # Write the update hash to file
+    if [ -n "$_update_hash_file" ]; then
+	echo "$_update_hash" > "$_update_hash_file"
+	if [ $? != 0 ]; then
+	    say_err "failed to write update hash to file"
+	    _failing=true
+	fi
+    fi
+
     if [ "$_failing" = true ]; then
 	return 1
     fi
@@ -526,6 +537,7 @@ install_toolchain() {
     local _installer_dir="$_workdir/$(basename "$_installer" | sed s/.tar.gz$//)"
 
     # Extract the toolchain
+    say "extracting installer"
     run tar xzf "$_installer" -C "$_workdir"
     if [ $? != 0 ]; then
 	verbose_say "failed to extract installer"
@@ -961,14 +973,6 @@ download_and_check() {
 	    run rm -R "$_workdir" || return 1
 	    # NB: Return code 20 is successful here!
 	    return 20
-	else
-	    # Write the update hash to file
-	    echo "$_cache_name" > "$_update_hash_file"
-	    if [ $? != 0 ]; then
-		say_err "failed to write update hash to file"
-		ignore rm -R "$_workdir"
-		return 1
-	    fi
 	fi
     fi
 
@@ -1015,6 +1019,7 @@ download_and_check() {
 
     RETVAL="$_cache_dir/$_remote_basename"
     RETVAL_CACHE="$_cache_dir"
+    RETVAL_UPDATE_HASH="$_cache_name"
 }
 
 download_checksum_for() {
