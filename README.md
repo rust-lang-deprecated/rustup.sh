@@ -66,3 +66,4 @@ rustup.sh --revision=1.0.0-beta
 * GC old temp and cache files.
 * Error on unknown command line options.
 * Do cleanup of in-use temp files on trap.
+* Don't clobber multirust if it is installed at the destination prefix.
