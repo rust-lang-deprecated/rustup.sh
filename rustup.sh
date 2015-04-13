@@ -446,6 +446,22 @@ install_toolchain_from_dist() {
     local _save="$3"
     local _update_hash_file="$4"
 
+    # FIXME: Right now installing rust over top of multirust will
+    # result in a broken multirust installation.
+    # This hack tries to avoid that by detecting if multirust is installed,
+    # but I'd rather fix this by having the installers understand negative
+    # dependencies.
+    local _potential_multirust_bin="$_prefix/bin/multirust"
+    if [ -e "$_potential_multirust_bin" ]; then
+	say_err "multirust appears to be installed at the destination, $_potential_multirust_bin"
+	say_err "installing rust over multirust will result in breakage."
+	local _potential_uninstaller="$_prefix/lib/rustlib/uninstall.sh"
+	if [ -e "$_potential_uninstaller" ]; then
+	    say_err "consider uninstalling multirust first by running $_potential_uninstaller"
+	fi
+	err "aborting"
+    fi
+
     if [ "$using_insecure_dist_server" = "true" ]; then
 	# disabling https avoids rust#21293
 	say "gpg available. signatures will be verified"

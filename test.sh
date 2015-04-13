@@ -809,6 +809,17 @@ update_hash_file2() {
 }
 runtest update_hash_file2
 
+abort_if_multirust_is_installed() {
+    try mkdir -p "$TEST_PREFIX/bin"
+    try touch "$TEST_PREFIX/bin/multirust"
+    expect_output_fail "installing rust over multirust will result in breakage" rustup.sh --prefix="$TEST_PREFIX" --spec=nightly --update-hash-file="$TMP_DIR/update-hash"
+    # If an uninstall script exists rustup will suggest running it
+    try mkdir -p "$TEST_PREFIX/lib/rustlib"
+    try touch "$TEST_PREFIX/lib/rustlib/uninstall.sh"
+    expect_output_fail "consider uninstalling multirust first" rustup.sh --prefix="$TEST_PREFIX" --spec=nightly --update-hash-file="$TMP_DIR/update-hash"
+}
+runtest abort_if_multirust_is_installed
+
 echo
 echo "SUCCESS"
 echo
