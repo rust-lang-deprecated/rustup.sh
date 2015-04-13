@@ -696,7 +696,7 @@ runtest save_with_date
 out_of_date_metadata() {
     try rustup.sh --prefix="$TEST_PREFIX" --save
     echo "bogus" > "$RUSTUP_HOME/rustup-version"
-    expect_output_ok "rustup metadata is out of date" rustup.sh --prefix="$TEST_PREFIX" --save
+    expect_output_ok "metadata is out of date" rustup.sh --prefix="$TEST_PREFIX" --save
 }
 runtest out_of_date_metadata
 
@@ -770,6 +770,44 @@ explicit_version_with_date() {
     expect_output_fail "the --revision flag may not be combined with --date" rustup.sh --prefix="$TEST_PREFIX" --revision=1.0.0 --date=2015-01-01
 }
 runtest explicit_version_with_date
+
+save_and_no_save() {
+    # Run with --save to create the rustup directory, and save the downloaded installer
+    try rustup.sh --prefix="$TEST_PREFIX" --revision=1.0.0 --save
+    local _cache_dir="$(ls "$RUSTUP_HOME/dl")"
+    try test -n "$_cache_dir"
+    try test -e "$RUSTUP_HOME/dl/$_cache_dir/*.tar.gz"
+    # This time it will delete the downloaded files
+    try rustup.sh --prefix="$TEST_PREFIX" --revision=1.0.0
+    local _dirlisting="$(ls "$RUSTUP_HOME/dl")"
+    try test -z "$_dirlisting"
+}
+runtest save_and_no_save
+
+install_from_spec() {
+    try rustup.sh --prefix="$TEST_PREFIX" --spec=nightly
+    expect_output_ok "hash-nightly-2" "$TEST_PREFIX/bin/rustc" --version
+    try rustup.sh --prefix="$TEST_PREFIX" --spec=nightly-2015-01-01
+    expect_output_ok "hash-nightly-1" "$TEST_PREFIX/bin/rustc" --version
+    try rustup.sh --prefix="$TEST_PREFIX" --spec=1.0.0
+    expect_output_ok "hash-stable-1" "$TEST_PREFIX/bin/rustc" --version
+}
+runtest install_from_spec
+
+update_hash_file() {
+    try rustup.sh --prefix="$TEST_PREFIX" --spec=nightly --update-hash-file="$TMP_DIR/update-hash"
+    expect_output_ok "'nightly' is already up to date" rustup.sh --prefix="$TEST_PREFIX" --spec=nightly --update-hash-file="$TMP_DIR/update-hash"
+}
+runtest update_hash_file
+
+update_hash_file2() {
+    set_current_dist_date 2015-01-01
+    try rustup.sh --prefix="$TEST_PREFIX" --spec=nightly --update-hash-file="$TMP_DIR/update-hash"
+    # Since the date changed, there's an update, and we should *not* see the short-circuit
+    set_current_dist_date 2015-01-02
+    expect_not_output_ok "'nightly' is already up to date" rustup.sh --prefix="$TEST_PREFIX" --spec=nightly --update-hash-file="$TMP_DIR/update-hash"
+}
+runtest update_hash_file2
 
 echo
 echo "SUCCESS"
