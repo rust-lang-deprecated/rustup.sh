@@ -924,14 +924,14 @@ check_sig() {
 
     # Convert the armored key to .gpg format so it works with --keyring
     verbose_say "converting armored key to gpg"
-    run gpg --dearmor "$_workdir/key.asc"
+    run gpg --no-permission-warning --dearmor "$_workdir/key.asc"
     if [ $? != 0 ]; then
 	ignore rm -R "$_workdir"
 	return 1
     fi
 
     verbose_say "verifying signature '$_sig_file'"
-    local _output="$(gpg --keyring "$_workdir/key.asc.gpg" --verify "$_sig_file" 2>&1)"
+    local _output="$(gpg --no-permission-warning --keyring "$_workdir/key.asc.gpg" --verify "$_sig_file" 2>&1)"
     if [ $? != 0 ]; then
 	ignore echo "$_output"
 	say_err "signature verification failed"
