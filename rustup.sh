@@ -1253,3 +1253,5 @@ assert_cmds() {
 }
 
 main "$@"
+
+# vim: set noet ts=8 sts=4 sw=4:
