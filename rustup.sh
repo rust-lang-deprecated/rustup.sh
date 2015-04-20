@@ -199,7 +199,7 @@ Mve696B5tlHyc1KxjHR6w9GRsh4=
 "
 
     if [ -n "${RUSTUP_GPG_KEY-}" ]; then
-	gpg_key=`cat "$RUSTUP_GPG_KEY"`
+	gpg_key=$(cat "$RUSTUP_GPG_KEY")
     else
 	gpg_key="$official_rust_gpg_key"
     fi
@@ -208,7 +208,7 @@ Mve696B5tlHyc1KxjHR6w9GRsh4=
     sha256sum_cmd="${__RUSTUP_MOCK_SHA256SUM-sha256sum}"
 
     flag_verbose=false
-    flag_yes=false
+    #flag_yes=false
 
     if [ -n "${RUSTUP_VERBOSE-}" ]; then
 	flag_verbose=true
@@ -284,7 +284,7 @@ handle_command_line_args() {
 
 	    -y | --yes)
 		# yes is a global flag
-		flag_yes=true
+		#flag_yes=true
 		;;
 
 	    --version)
@@ -295,9 +295,9 @@ handle_command_line_args() {
 	esac
 
 	if is_value_arg "$arg" "prefix"; then
-	    _prefix="$(get_value_arg "arg")"
+	    _prefix="$(get_value_arg "$arg")"
 	elif is_value_arg "$arg" "channel"; then
-	    _channel="$(get_value_arg "arg")"
+	    _channel="$(get_value_arg "$arg")"
 	elif is_value_arg "$arg" "date"; then
 	    _date="$(get_value_arg "$arg")"
 	elif is_value_arg "$arg" "revision"; then
@@ -410,7 +410,7 @@ is_value_arg() {
 get_value_arg() {
     local _arg="$1"
 
-    echo "$arg" | cut -f2 -d=
+    echo "$_arg" | cut -f2 -d=
 }
 
 validate_channel() {
@@ -742,7 +742,7 @@ make_temp_name() {
 
     local _tmp_number="${NEXT_TMP_NUMBER-0}"
     local _tmp_name="tmp-$_pid-$_tmp_number"
-    NEXT_TMP_NUMBER="$(expr "$_tmp_number" + 1)"
+    NEXT_TMP_NUMBER=$((_tmp_number + 1))
     need_ok "failed to create temp number"
     assert_nz "$NEXT_TMP_NUMBER" "NEXT_TMP_NUMBER"
     RETVAL="$_tmp_name"
@@ -900,7 +900,7 @@ get_architecture() {
 	fi
     fi
 
-    local _arch="$_cputype-$_ostype" 
+    local _arch="$_cputype-$_ostype"
     verbose_say "architecture is $_arch"
 
     RETVAL="$_arch"
@@ -924,14 +924,14 @@ check_sig() {
 
     # Convert the armored key to .gpg format so it works with --keyring
     verbose_say "converting armored key to gpg"
-    run gpg --dearmor "$_workdir/key.asc"
+    run gpg --no-permission-warning --dearmor "$_workdir/key.asc"
     if [ $? != 0 ]; then
 	ignore rm -R "$_workdir"
 	return 1
     fi
 
     verbose_say "verifying signature '$_sig_file'"
-    local _output="$(gpg --keyring "$_workdir/key.asc.gpg" --verify "$_sig_file" 2>&1)"
+    local _output="$(gpg --no-permission-warning --keyring "$_workdir/key.asc.gpg" --verify "$_sig_file" 2>&1)"
     if [ $? != 0 ]; then
 	ignore echo "$_output"
 	say_err "signature verification failed"
@@ -1190,7 +1190,7 @@ err() {
 }
 
 need_cmd() {
-    if ! command -v $1 > /dev/null 2>&1
+    if ! command -v "$1" > /dev/null 2>&1
     then err "need $1"
     fi
 }
@@ -1253,3 +1253,5 @@ assert_cmds() {
 }
 
 main "$@"
+
+# vim: set noet ts=8 sts=4 sw=4:
