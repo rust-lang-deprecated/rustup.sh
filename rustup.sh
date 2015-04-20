@@ -79,9 +79,15 @@ set_globals() {
     dist_server="${RUSTUP_DIST_SERVER-$default_dist_server}"
     using_insecure_dist_server=false
 
+    # Check to see if GNUPG version 2 is installed, falling back to using version 1 by default
+    gpg_exe=gpg
+    if command -v gpg2 > /dev/null 2>&1; then
+        gpg_exe=gpg2
+    fi
+
     # Disable https if we can gpg because cloudfront often gets our files out of sync
     if [ "$dist_server" = "$default_dist_server" ]; then
-	if command -v gpg > /dev/null 2>&1; then
+	if command -v "$gpg_exe" > /dev/null 2>&1; then
 	    dist_server="$insecure_dist_server"
 	    using_insecure_dist_server=true
 	fi
@@ -264,6 +270,7 @@ handle_command_line_args() {
     local _revision=""
     local _spec=""
     local _update_hash_file=""
+    local _disable_ldconfig=false
 
     for arg in "$@"; do
 	case "$arg" in
@@ -280,6 +287,10 @@ handle_command_line_args() {
 	    --verbose)
 		# verbose is a global flag
 		flag_verbose=true
+		;;
+
+	    --disable-ldconfig)
+		_disable_ldconfig=true
 		;;
 
 	    -y | --yes)
@@ -374,7 +385,7 @@ handle_command_line_args() {
     # OK, time to do the things
     local _succeeded=true
     if [ "$_uninstall" = false ]; then
-	install_toolchain_from_dist "$_toolchain" "$_prefix" "$_save" "$_update_hash_file"
+	install_toolchain_from_dist "$_toolchain" "$_prefix" "$_save" "$_update_hash_file" "$_disable_ldconfig"
 	if [ $? != 0 ]; then
 	    _succeeded=false
 	fi
@@ -445,6 +456,7 @@ install_toolchain_from_dist() {
     local _prefix="$2"
     local _save="$3"
     local _update_hash_file="$4"
+    local _disable_ldconfig="$5"
 
     # FIXME: Right now installing rust over top of multirust will
     # result in a broken multirust installation.
@@ -508,7 +520,7 @@ install_toolchain_from_dist() {
     # There next few statements may all fail independently.
     local _failing=false
 
-    install_toolchain "$_toolchain" "$_installer_file" "$_workdir" "$_prefix"
+    install_toolchain "$_toolchain" "$_installer_file" "$_workdir" "$_prefix" "$_disable_ldconfig"
     if [ $? != 0 ]; then
 	say_err "failed to install toolchain"
 	_failing=true
@@ -549,6 +561,7 @@ install_toolchain() {
     local _installer="$2"
     local _workdir="$3"
     local _prefix="$4"
+    local _disable_ldconfig="$5"
 
     local _installer_dir="$_workdir/$(basename "$_installer" | sed s/.tar.gz$//)"
 
@@ -565,7 +578,11 @@ install_toolchain() {
     verbose_say "installing toolchain to '$_toolchain_dir'"
     say "installing toolchain for '$_toolchain'"
 
-    run sh "$_installer_dir/install.sh" --prefix="$_toolchain_dir" --disable-ldconfig
+    if [ "$_disable_ldconfig" = false ]; then
+	run sh "$_installer_dir/install.sh" --prefix="$_toolchain_dir"
+    else
+	run sh "$_installer_dir/install.sh" --prefix="$_toolchain_dir" --disable-ldconfig
+    fi
     if [ $? != 0 ]; then
 	verbose_say "failed to install toolchain"
 	return 1
@@ -910,7 +927,7 @@ check_sig() {
     local _sig_file="$1"
     local _quiet="$2"
 
-    if ! command -v gpg > /dev/null 2>&1; then
+    if ! command -v "$gpg_exe" > /dev/null 2>&1; then
 	return
     fi
 
@@ -924,14 +941,14 @@ check_sig() {
 
     # Convert the armored key to .gpg format so it works with --keyring
     verbose_say "converting armored key to gpg"
-    run gpg --no-permission-warning --dearmor "$_workdir/key.asc"
+    run "$gpg_exe" --no-permission-warning --dearmor "$_workdir/key.asc"
     if [ $? != 0 ]; then
 	ignore rm -R "$_workdir"
 	return 1
     fi
 
     verbose_say "verifying signature '$_sig_file'"
-    local _output="$(gpg --no-permission-warning --keyring "$_workdir/key.asc.gpg" --verify "$_sig_file" 2>&1)"
+    local _output="$("$gpg_exe" --no-permission-warning --keyring "$_workdir/key.asc.gpg" --verify "$_sig_file" 2>&1)"
     if [ $? != 0 ]; then
 	ignore echo "$_output"
 	say_err "signature verification failed"
@@ -1164,6 +1181,7 @@ Options:
      --spec=<toolchain-spec>           Install from toolchain spec
      --prefix=<path>                   Install to a specific location (default /usr/local)
      --uninstall                       Uninstall instead of install
+     --disable-ldconfig                Do not run ldconfig on Linux
      --save                            Save downloads for future reuse
 '
 }
