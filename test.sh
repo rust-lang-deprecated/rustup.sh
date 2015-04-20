@@ -817,8 +817,14 @@ abort_if_multirust_is_installed() {
     try mkdir -p "$TEST_PREFIX/lib/rustlib"
     try touch "$TEST_PREFIX/lib/rustlib/uninstall.sh"
     expect_output_fail "consider uninstalling multirust first" rustup.sh --prefix="$TEST_PREFIX" --spec=nightly --update-hash-file="$TMP_DIR/update-hash"
+    try rm "$TEST_PREFIX/bin/multirust"
 }
 runtest abort_if_multirust_is_installed
+
+disable_ldconfig() {
+    try rustup.sh --prefix="$TEST_PREFIX" --spec=nightly --disable-ldconfig
+}
+runtest disable_ldconfig
 
 echo
 echo "SUCCESS"

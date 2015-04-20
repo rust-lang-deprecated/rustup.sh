@@ -264,6 +264,7 @@ handle_command_line_args() {
     local _revision=""
     local _spec=""
     local _update_hash_file=""
+    local _disable_ldconfig=false
 
     for arg in "$@"; do
 	case "$arg" in
@@ -280,6 +281,10 @@ handle_command_line_args() {
 	    --verbose)
 		# verbose is a global flag
 		flag_verbose=true
+		;;
+
+	    --disable-ldconfig)
+		_disable_ldconfig=true
 		;;
 
 	    -y | --yes)
@@ -374,7 +379,7 @@ handle_command_line_args() {
     # OK, time to do the things
     local _succeeded=true
     if [ "$_uninstall" = false ]; then
-	install_toolchain_from_dist "$_toolchain" "$_prefix" "$_save" "$_update_hash_file"
+	install_toolchain_from_dist "$_toolchain" "$_prefix" "$_save" "$_update_hash_file" "$_disable_ldconfig"
 	if [ $? != 0 ]; then
 	    _succeeded=false
 	fi
@@ -445,6 +450,7 @@ install_toolchain_from_dist() {
     local _prefix="$2"
     local _save="$3"
     local _update_hash_file="$4"
+    local _disable_ldconfig="$5"
 
     # FIXME: Right now installing rust over top of multirust will
     # result in a broken multirust installation.
@@ -508,7 +514,7 @@ install_toolchain_from_dist() {
     # There next few statements may all fail independently.
     local _failing=false
 
-    install_toolchain "$_toolchain" "$_installer_file" "$_workdir" "$_prefix"
+    install_toolchain "$_toolchain" "$_installer_file" "$_workdir" "$_prefix" "$_disable_ldconfig"
     if [ $? != 0 ]; then
 	say_err "failed to install toolchain"
 	_failing=true
@@ -549,6 +555,7 @@ install_toolchain() {
     local _installer="$2"
     local _workdir="$3"
     local _prefix="$4"
+    local _disable_ldconfig="$5"
 
     local _installer_dir="$_workdir/$(basename "$_installer" | sed s/.tar.gz$//)"
 
@@ -565,7 +572,11 @@ install_toolchain() {
     verbose_say "installing toolchain to '$_toolchain_dir'"
     say "installing toolchain for '$_toolchain'"
 
-    run sh "$_installer_dir/install.sh" --prefix="$_toolchain_dir" --disable-ldconfig
+    if [ "$_disable_ldconfig" = false ]; then
+	run sh "$_installer_dir/install.sh" --prefix="$_toolchain_dir"
+    else
+	run sh "$_installer_dir/install.sh" --prefix="$_toolchain_dir" --disable-ldconfig
+    fi
     if [ $? != 0 ]; then
 	verbose_say "failed to install toolchain"
 	return 1
@@ -1164,6 +1175,7 @@ Options:
      --spec=<toolchain-spec>           Install from toolchain spec
      --prefix=<path>                   Install to a specific location (default /usr/local)
      --uninstall                       Uninstall instead of install
+     --disable-ldconfig                Do not run ldconfig on Linux
      --save                            Save downloads for future reuse
 '
 }
