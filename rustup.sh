@@ -238,7 +238,7 @@ initialize_metadata() {
     fi
 
     ensure mkdir -p "$rustup_dir"
-    rustup_dir="$(cd "$rustup_dir" && pwd)"
+    rustup_dir="$(abs_path "$rustup_dir")"
     assert_nz "$rustup_dir" "rustup_dir"
 
     if [ ! -e "$version_file" ]; then
@@ -1244,6 +1244,15 @@ run() {
 	say_err "command failed: $*"
     fi
     return $_retval
+}
+
+# Prints the absolute path of a directory to stdout
+abs_path() {
+    local path="$1"
+    # Unset CDPATH because it causes havok: it makes the destination unpredictable
+    # and triggers 'cd' to print the path to stdout. Route `cd`'s output to /dev/null
+    # for good measure.
+    (unset CDPATH && cd "$path" > /dev/null && pwd)
 }
 
 assert_cmds() {
