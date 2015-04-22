@@ -2,7 +2,16 @@
 
 set -e -u
 
-S="$(cd $(dirname $0) && pwd)"
+# Prints the absolute path of a directory to stdout
+abs_path() {
+    local path="$1"
+    # Unset CDPATH because it causes havok: it makes the destination unpredictable
+    # and triggers 'cd' to print the path to stdout. Route `cd`'s output to /dev/null
+    # for good measure.
+    (unset CDPATH && cd "$path" > /dev/null && pwd)
+}
+
+S="$(abs_path $(dirname $0))"
 
 TMP_DIR="$S/tmp"
 MOCK_DIST_DIR="$S/tmp/mock-dist"
@@ -24,7 +33,7 @@ RUSTUP_GPG_KEY="$TEST_DIR/public-key.asc"
 WORK_DIR="$S/tmp/work"
 MOCK_BUILD_DIR="$S/tmp/mock-build"
 TEST_PREFIX="$S/tmp/prefix"
-RUSTUP_HOME="$(cd "$TMP_DIR" && pwd)/rustup"
+RUSTUP_HOME="$(abs_path "$TMP_DIR")/rustup"
 
 say() {
     echo "test: $1"
@@ -632,7 +641,7 @@ export RUSTUP_HOME
 export RUSTUP_GPG_KEY
 
 # Tell rustup where to download stuff from
-RUSTUP_DIST_SERVER="file://$(cd "$MOCK_DIST_DIR" && pwd)"
+RUSTUP_DIST_SERVER="file://$(abs_path "$MOCK_DIST_DIR")"
 export RUSTUP_DIST_SERVER
 
 # Set up the PATH to find rustup.sh
