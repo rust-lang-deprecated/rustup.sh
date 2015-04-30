@@ -214,7 +214,7 @@ Mve696B5tlHyc1KxjHR6w9GRsh4=
     sha256sum_cmd="${__RUSTUP_MOCK_SHA256SUM-sha256sum}"
 
     flag_verbose=false
-    #flag_yes=false
+    flag_yes=false
 
     if [ -n "${RUSTUP_VERBOSE-}" ]; then
 	flag_verbose=true
@@ -300,7 +300,7 @@ handle_command_line_args() {
 
 	    -y | --yes)
 		# yes is a global flag
-		#flag_yes=true
+		flag_yes=true
 		;;
 
 	    --version)
@@ -336,16 +336,7 @@ handle_command_line_args() {
     # Make sure either rust256sum or shasum exists
     need_shasum_cmd
 
-    # All work is done in the ~/.rustup dir, which will be deleted
-    # afterward if the user doesn't pass --save. *If* ~/.rustup
-    # already exists and they *did not* pass --save, we'll pretend
-    # they did anyway to avoid deleting their data.
-    local _preserve_rustup_dir="$_save"
-    if [ "$_save" = false -a -e "$version_file" ]; then
-	verbose_say "rustup home exists but not asked to save. saving anyway"
-	_preserve_rustup_dir=true
-    fi
-
+    # Check that the various toolchain-specifying flags don't conflict
     if [ -n "$_revision" ]; then
 	if [ -n "$_channel" ]; then
 	    err "the --revision flag may not be combined with --channel"
@@ -383,6 +374,26 @@ handle_command_line_args() {
 	_toolchain="$_spec"
     fi
     assert_nz "$_toolchain" "toolchain"
+
+    if [ "$flag_yes" = false ]; then
+	# Running in interactive mode, check that a tty exists
+	check_tty
+
+	# Print the welcome / warning message and wait for confirmation
+	print_welcome_message "$_prefix" "$_uninstall" "$_disable_sudo"
+
+	get_tty_confirmation
+    fi
+
+    # All work is done in the ~/.rustup dir, which will be deleted
+    # afterward if the user doesn't pass --save. *If* ~/.rustup
+    # already exists and they *did not* pass --save, we'll pretend
+    # they did anyway to avoid deleting their data.
+    local _preserve_rustup_dir="$_save"
+    if [ "$_save" = false -a -e "$version_file" ]; then
+	verbose_say "rustup home exists but not asked to save. saving anyway"
+	_preserve_rustup_dir=true
+    fi
 
     # Make sure our data directory exists and is the right format
     initialize_metadata
@@ -452,6 +463,47 @@ validate_date() {
 	    ;;
     esac
 }
+
+print_welcome_message() {
+    local _prefix="$1"
+    local _uninstall="$2"
+    local _disable_sudo="$3"
+
+    if [ "$_uninstall" = false ]; then
+	cat <<EOF
+
+Welcome to Rust.
+
+This script will download the Rust compiler and its package manager, Cargo, and
+install them to $_prefix. You may install elsewhere by running this script
+with the --prefix=<path> option.
+EOF
+    else
+	cat <<EOF
+
+This script will uninstall the existing Rust installation at $_prefix.
+EOF
+    fi
+
+    if [ "$_disable_sudo" = false ]; then
+	cat <<EOF
+
+The installer will run under 'sudo' and may ask you for your password. If you do
+not want the script to run 'sudo' then pass this script the --disable-sudo flag.
+EOF
+    fi
+
+    if [ "$_uninstall" = false ]; then
+	cat <<EOF
+
+You may uninstall later by running $_prefix/lib/rustlib/uninstall.sh,
+or by running this script again with the --uninstall flag.
+EOF
+    fi
+
+    echo
+}
+
 
 # Updating toolchains
 
@@ -1169,6 +1221,29 @@ check_file_and_sig() {
     if [ $? != 0 ]; then
 	say_err "signature failed for '$_local_name'"
 	return 1
+    fi
+}
+
+# Verifies that the terminal can be opened or exits
+check_tty() {
+    # FIXME: This isn't sufficient since it just checks that tty
+    # exists, not that it can be read
+    if [ ! -e /dev/tty ]; then
+	err "running in interactive mode (without -y), but cannot open /dev/tty"
+    fi
+}
+
+# Waits for a y/n response and exits if n
+get_tty_confirmation() {
+    local _yn=""
+    read -p "Continue? (y/N) " _yn < /dev/tty
+    need_ok "failed to read from /dev/tty"
+
+    echo
+
+    if [ "$_yn" != "y" -a "$_yn" != "Y" -a "$_yn" != "yes" ]; then
+	say "cancelling"
+	exit 0
     fi
 }
 
