@@ -223,6 +223,8 @@ Mve696B5tlHyc1KxjHR6w9GRsh4=
 
 # Ensuresthat ~/.rustup exists and uses the correct format
 initialize_metadata() {
+    local _disable_sudo="$1"
+
     verbose_say "checking metadata version"
 
     if [ "$rustup_dir" = "$HOME" ]; then
@@ -235,6 +237,36 @@ initialize_metadata() {
 	say "rustup home dir exists at $rustup_dir but version file $version_file does not."
 	say "this may be old rustup metadata, in which case it can be deleted."
 	err "this is very suspicous. aborting."
+    fi
+
+    # Oh, my. We used to encourage people running this script as root,
+    # and that resulted in users' ~/.rustup directories being owned by
+    # root (running `sudo sh` doesn't change $HOME apparently). Now
+    # that we're not running as root, we can't touch our ~/.rustup
+    # directory. Try to fix that.
+    if [ -e "$version_file" ]; then
+	local _can_write=true
+	local _probe_file="$rustup_dir/write-probe"
+	ignore touch "$_probe_file" 2> /dev/null
+	if [ $? != 0 ]; then
+	    _can_write=false
+	else
+	    ensure rm "$_probe_file"
+	fi
+
+	if [ "$_can_write" = false ]; then
+	    say "$rustup_dir is unwritable. it was likely created by a previous rustup run under sudo"
+	    if [ "$_disable_sudo" = false ]; then
+		say "deleting it with sudo"
+		run sudo rm -R "$rustup_dir"
+		if [ $? != 0 ]; then
+		    err "unable to delete unwritable $rustup_dir"
+		fi
+	    else
+		say_err "not deleting it because of --disable-sudo"
+		err "delete $rustup_dir to continue. aborting"
+	    fi
+	fi
     fi
 
     ensure mkdir -p "$rustup_dir"
@@ -396,17 +428,18 @@ handle_command_line_args() {
     fi
 
     # Make sure our data directory exists and is the right format
-    initialize_metadata
+    initialize_metadata "$_disable_sudo"
 
     # OK, time to do the things
     local _succeeded=true
     if [ "$_uninstall" = false ]; then
-	install_toolchain_from_dist "$_toolchain" "$_prefix" "$_save" "$_update_hash_file" "$_disable_ldconfig"
+	install_toolchain_from_dist "$_toolchain" "$_prefix" "$_save" "$_update_hash_file" \
+				    "$_disable_ldconfig" "$_disable_sudo"
 	if [ $? != 0 ]; then
 	    _succeeded=false
 	fi
     else
-	remove_toolchain "$_prefix"
+	remove_toolchain "$_prefix" "$_disable_sudo"
 	if [ $? != 0 ]; then
 	    _succeeded=false
 	fi
@@ -514,6 +547,7 @@ install_toolchain_from_dist() {
     local _save="$3"
     local _update_hash_file="$4"
     local _disable_ldconfig="$5"
+    local _disable_sudo="$6"
 
     # FIXME: Right now installing rust over top of multirust will
     # result in a broken multirust installation.
@@ -577,7 +611,8 @@ install_toolchain_from_dist() {
     # There next few statements may all fail independently.
     local _failing=false
 
-    install_toolchain "$_toolchain" "$_installer_file" "$_workdir" "$_prefix" "$_disable_ldconfig"
+    install_toolchain "$_toolchain" "$_installer_file" "$_workdir" "$_prefix" \
+		      "$_disable_ldconfig" "$_disable_sudo"
     if [ $? != 0 ]; then
 	say_err "failed to install toolchain"
 	_failing=true
@@ -619,6 +654,7 @@ install_toolchain() {
     local _workdir="$3"
     local _prefix="$4"
     local _disable_ldconfig="$5"
+    local _disable_sudo="$6"
 
     local _installer_dir="$_workdir/$(basename "$_installer" | sed s/.tar.gz$//)"
 
@@ -636,9 +672,9 @@ install_toolchain() {
     say "installing toolchain for '$_toolchain'"
 
     if [ "$_disable_ldconfig" = false ]; then
-	run sh "$_installer_dir/install.sh" --prefix="$_toolchain_dir"
+	maybe_sudo "$_disable_sudo" sh "$_installer_dir/install.sh" --prefix="$_toolchain_dir"
     else
-	run sh "$_installer_dir/install.sh" --prefix="$_toolchain_dir" --disable-ldconfig
+	maybe_sudo "$_disable_sudo" sh "$_installer_dir/install.sh" --prefix="$_toolchain_dir" --disable-ldconfig
     fi
     if [ $? != 0 ]; then
 	verbose_say "failed to install toolchain"
@@ -649,11 +685,12 @@ install_toolchain() {
 
 remove_toolchain() {
     local _prefix="$1"
+    local _disable_sudo="$2"
     local _uninstall_script="$_prefix/lib/rustlib/uninstall.sh"
 
     if [ -e "$_uninstall_script" ]; then
 	verbose_say "uninstalling from '$_uninstall_script'"
-	sh "$_uninstall_script"
+	maybe_sudo "$_disable_sudo" sh "$_uninstall_script"
 	if [ $? != 0 ]; then
 	    say_err "failed to remove toolchain"
 	    return 1;
@@ -1247,6 +1284,18 @@ get_tty_confirmation() {
     fi
 }
 
+maybe_sudo() {
+    local _disable_sudo="$1"
+
+    shift
+
+    if [ "$_disable_sudo" = false ]; then
+	run sudo "$@"
+    else
+	run "$@"
+    fi
+}
+
 # Help
 
 print_help() {
@@ -1262,7 +1311,7 @@ Options:
      --prefix=<path>                   Install to a specific location (default /usr/local)
      --uninstall                       Uninstall instead of install
      --disable-ldconfig                Do not run ldconfig on Linux
-     --disable-sudo                    Do not run installer or ldconfig under sudo
+     --disable-sudo                    Do not run installer under sudo
      --save                            Save downloads for future reuse
 '
 }
@@ -1358,6 +1407,7 @@ assert_cmds() {
     need_cmd date
     need_cmd head
     need_cmd printf
+    need_cmd touch
 }
 
 main "$@"
