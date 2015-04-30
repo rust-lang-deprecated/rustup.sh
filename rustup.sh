@@ -271,6 +271,7 @@ handle_command_line_args() {
     local _spec=""
     local _update_hash_file=""
     local _disable_ldconfig=false
+    local _disable_sudo=false
 
     for arg in "$@"; do
 	case "$arg" in
@@ -291,6 +292,10 @@ handle_command_line_args() {
 
 	    --disable-ldconfig)
 		_disable_ldconfig=true
+		;;
+
+	    --disable-sudo)
+		_disable_sudo=true
 		;;
 
 	    -y | --yes)
@@ -1182,6 +1187,7 @@ Options:
      --prefix=<path>                   Install to a specific location (default /usr/local)
      --uninstall                       Uninstall instead of install
      --disable-ldconfig                Do not run ldconfig on Linux
+     --disable-sudo                    Do not run installer or ldconfig under sudo
      --save                            Save downloads for future reuse
 '
 }
