@@ -502,10 +502,24 @@ print_welcome_message() {
     local _uninstall="$2"
     local _disable_sudo="$3"
 
-    if [ "$_uninstall" = false ]; then
-	cat <<EOF
+    cat <<EOF
 
 Welcome to Rust.
+EOF
+
+    if [ "$_disable_sudo" = false ]; then
+	if [ "$(id -u)" = 0 ]; then
+	    cat <<EOF
+
+WARNING: This script appears to be running as root. While it will work
+correctly, it is no longer necessary for rustup.sh to run as root.
+EOF
+	fi
+    fi
+
+    
+    if [ "$_uninstall" = false ]; then
+	cat <<EOF
 
 This script will download the Rust compiler and its package manager, Cargo, and
 install them to $_prefix. You may install elsewhere by running this script
@@ -1408,6 +1422,7 @@ assert_cmds() {
     need_cmd head
     need_cmd printf
     need_cmd touch
+    need_cmd id
 }
 
 main "$@"
