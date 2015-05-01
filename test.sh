@@ -649,88 +649,92 @@ PATH="$S:$PATH"
 export PATH
 try test -e "$S/rustup.sh"
 
+run_rustup() {
+    rustup.sh "$@" --disable-sudo -y
+}
+
 basic_install() {
-    try rustup.sh --prefix="$TEST_PREFIX"
+    try run_rustup --prefix="$TEST_PREFIX"
     try test -e "$TEST_PREFIX/bin/rustc"
 }
 runtest basic_install
 
 basic_uninstall() {
-    try rustup.sh --prefix="$TEST_PREFIX"
+    try run_rustup --prefix="$TEST_PREFIX"
     try test -e "$TEST_PREFIX/bin/rustc"
-    try rustup.sh --prefix="$TEST_PREFIX" --uninstall
+    try run_rustup --prefix="$TEST_PREFIX" --uninstall
     try test ! -e "$TEST_PREFIX/bin/rustc"
 }
 runtest basic_uninstall
 
 uninstall_not_installed() {
-    expect_output_ok "no toolchain installed" rustup.sh --prefix="$TEST_PREFIX" --uninstall
+    expect_output_ok "no toolchain installed" run_rustup --prefix="$TEST_PREFIX" --uninstall
 }
 runtest uninstall_not_installed
 
 with_date() {
-    try rustup.sh --prefix="$TEST_PREFIX" --date=2015-01-01
+    try run_rustup --prefix="$TEST_PREFIX" --date=2015-01-01
     expect_output_ok "hash-beta-1" "$TEST_PREFIX/bin/rustc" --version
 }
 runtest with_date
 
 with_channel() {
-    try rustup.sh --prefix="$TEST_PREFIX" --channel=nightly
+    try run_rustup --prefix="$TEST_PREFIX" --channel=nightly
     expect_output_ok "hash-nightly-2" "$TEST_PREFIX/bin/rustc" --version
 }
 runtest with_channel
 
 with_channel_and_date() {
-    try rustup.sh --prefix="$TEST_PREFIX" --date=2015-01-01 --channel=nightly
+    try run_rustup --prefix="$TEST_PREFIX" --date=2015-01-01 --channel=nightly
     expect_output_ok "hash-nightly-1" "$TEST_PREFIX/bin/rustc" --version
 }
 runtest with_channel_and_date
 
 save_without_date() {
-    try rustup.sh --prefix="$TEST_PREFIX" --save
+    try run_rustup --prefix="$TEST_PREFIX" --save
     try test -e "$TEST_PREFIX/bin/rustc"
-    try rustup.sh --prefix="$TEST_PREFIX" --save
+    try run_rustup --prefix="$TEST_PREFIX" --save
     try test -e "$TEST_PREFIX/bin/rustc"
 }
 runtest save_without_date
 
 save_with_date() {
-    try rustup.sh --prefix="$TEST_PREFIX" --save --date=2015-01-01
+    try run_rustup --prefix="$TEST_PREFIX" --save --date=2015-01-01
     try test -e "$TEST_PREFIX/bin/rustc"
-    try rustup.sh --prefix="$TEST_PREFIX" --save --date=2015-01-01
+    try run_rustup --prefix="$TEST_PREFIX" --save --date=2015-01-01
     try test -e "$TEST_PREFIX/bin/rustc"
 }
 runtest save_with_date
 
 out_of_date_metadata() {
-    try rustup.sh --prefix="$TEST_PREFIX" --save
+    try run_rustup --prefix="$TEST_PREFIX" --save
     echo "bogus" > "$RUSTUP_HOME/rustup-version"
-    expect_output_ok "metadata is out of date" rustup.sh --prefix="$TEST_PREFIX" --save
+    expect_output_ok "metadata is out of date" run_rustup --prefix="$TEST_PREFIX" --save
 }
 runtest out_of_date_metadata
 
 remove_metadata_if_not_save() {
-    try rustup.sh --prefix="$TEST_PREFIX"
+    try run_rustup --prefix="$TEST_PREFIX"
     try test ! -e "$RUSTUP_HOME/rustup-version"
 }
 runtest remove_metadata_if_not_save
 
 leave_metadata_if_save() {
-    try rustup.sh --prefix="$TEST_PREFIX" --save
+    try run_rustup --prefix="$TEST_PREFIX" --save
     try test -e "$RUSTUP_HOME/rustup-version"
 }
 runtest leave_metadata_if_save
 
 obey_RUST_PREFIX() {
     export RUSTUP_PREFIX="$TEST_PREFIX"
-    try rustup.sh
+    try run_rustup
     try test -e "$TEST_PREFIX/bin/rustc"
     unset RUSTUP_PREFIX
 }
 runtest obey_RUST_PREFIX
 
 install_to_prefix_that_does_not_exist() {
-    try rustup.sh --prefix="$TEST_PREFIX/a/b"
+    try run_rustup --prefix="$TEST_PREFIX/a/b"
     try test -e "$TEST_PREFIX/a/b/bin/rustc"
 }
 runtest install_to_prefix_that_does_not_exist
@@ -740,98 +744,98 @@ runtest install_to_prefix_that_does_not_exist
 suspicious_RUSTUP_HOME() {
     local _old_rustup_home="$RUSTUP_HOME"
     export RUSTUP_HOME="$TMP_DIR"
-    expect_output_fail "rustup home dir exists" rustup.sh
+    expect_output_fail "rustup home dir exists" run_rustup
     export RUSTUP_HOME="$_old_rustup_home"
 }
 runtest suspicious_RUSTUP_HOME
 
 shasum_fallback() {
     export __RUSTUP_MOCK_SHA256SUM=bogus
-    try rustup.sh --prefix="$TEST_PREFIX"
+    try run_rustup --prefix="$TEST_PREFIX"
     try test -e "$TEST_PREFIX/bin/rustc"
-    expect_output_ok "falling back to shasum" rustup.sh --prefix="$TEST_PREFIX" --verbose
+    expect_output_ok "falling back to shasum" run_rustup --prefix="$TEST_PREFIX" --verbose
     unset __RUSTUP_MOCK_SHA256SUM
 }
 runtest shasum_fallback
 
 validate_channel() {
-    expect_output_fail "channel must be either 'stable', 'beta', or 'nightly'" rustup.sh --channel=pah
+    expect_output_fail "channel must be either 'stable', 'beta', or 'nightly'" run_rustup --channel=pah
 }
 runtest validate_channel
 
 validate_date() {
-    expect_output_fail "date must be in YYYY-MM-DD format" rustup.sh --date=foo
+    expect_output_fail "date must be in YYYY-MM-DD format" run_rustup --date=foo
 }
 runtest validate_date
 
 explicit_version() {
-    try rustup.sh --prefix="$TEST_PREFIX" --revision=1.0.0
+    try run_rustup --prefix="$TEST_PREFIX" --revision=1.0.0
     try test -e "$TEST_PREFIX/bin/rustc"
 }
 runtest explicit_version
 
 explicit_version_with_channel() {
-    expect_output_fail "the --revision flag may not be combined with --channel" rustup.sh --prefix="$TEST_PREFIX" --revision=1.0.0 --channel=nightly
+    expect_output_fail "the --revision flag may not be combined with --channel" run_rustup --prefix="$TEST_PREFIX" --revision=1.0.0 --channel=nightly
 }
 runtest explicit_version_with_channel
 
 explicit_version_with_date() {
-    expect_output_fail "the --revision flag may not be combined with --date" rustup.sh --prefix="$TEST_PREFIX" --revision=1.0.0 --date=2015-01-01
+    expect_output_fail "the --revision flag may not be combined with --date" run_rustup --prefix="$TEST_PREFIX" --revision=1.0.0 --date=2015-01-01
 }
 runtest explicit_version_with_date
 
 save_and_no_save() {
     # Run with --save to create the rustup directory, and save the downloaded installer
-    try rustup.sh --prefix="$TEST_PREFIX" --revision=1.0.0 --save
+    try run_rustup --prefix="$TEST_PREFIX" --revision=1.0.0 --save
     local _cache_dir="$(ls "$RUSTUP_HOME/dl")"
     try test -n "$_cache_dir"
     try test -e "$RUSTUP_HOME/dl/$_cache_dir/*.tar.gz"
     # This time it will delete the downloaded files
-    try rustup.sh --prefix="$TEST_PREFIX" --revision=1.0.0
+    try run_rustup --prefix="$TEST_PREFIX" --revision=1.0.0
     local _dirlisting="$(ls "$RUSTUP_HOME/dl")"
     try test -z "$_dirlisting"
 }
 runtest save_and_no_save
 
 install_from_spec() {
-    try rustup.sh --prefix="$TEST_PREFIX" --spec=nightly
+    try run_rustup --prefix="$TEST_PREFIX" --spec=nightly
     expect_output_ok "hash-nightly-2" "$TEST_PREFIX/bin/rustc" --version
-    try rustup.sh --prefix="$TEST_PREFIX" --spec=nightly-2015-01-01
+    try run_rustup --prefix="$TEST_PREFIX" --spec=nightly-2015-01-01
     expect_output_ok "hash-nightly-1" "$TEST_PREFIX/bin/rustc" --version
-    try rustup.sh --prefix="$TEST_PREFIX" --spec=1.0.0
+    try run_rustup --prefix="$TEST_PREFIX" --spec=1.0.0
     expect_output_ok "hash-stable-1" "$TEST_PREFIX/bin/rustc" --version
 }
 runtest install_from_spec
 
 update_hash_file() {
-    try rustup.sh --prefix="$TEST_PREFIX" --spec=nightly --update-hash-file="$TMP_DIR/update-hash"
-    expect_output_ok "'nightly' is already up to date" rustup.sh --prefix="$TEST_PREFIX" --spec=nightly --update-hash-file="$TMP_DIR/update-hash"
+    try run_rustup --prefix="$TEST_PREFIX" --spec=nightly --update-hash-file="$TMP_DIR/update-hash"
+    expect_output_ok "'nightly' is already up to date" run_rustup --prefix="$TEST_PREFIX" --spec=nightly --update-hash-file="$TMP_DIR/update-hash"
 }
 runtest update_hash_file
 
 update_hash_file2() {
     set_current_dist_date 2015-01-01
-    try rustup.sh --prefix="$TEST_PREFIX" --spec=nightly --update-hash-file="$TMP_DIR/update-hash"
+    try run_rustup --prefix="$TEST_PREFIX" --spec=nightly --update-hash-file="$TMP_DIR/update-hash"
     # Since the date changed, there's an update, and we should *not* see the short-circuit
     set_current_dist_date 2015-01-02
-    expect_not_output_ok "'nightly' is already up to date" rustup.sh --prefix="$TEST_PREFIX" --spec=nightly --update-hash-file="$TMP_DIR/update-hash"
+    expect_not_output_ok "'nightly' is already up to date" run_rustup --prefix="$TEST_PREFIX" --spec=nightly --update-hash-file="$TMP_DIR/update-hash"
 }
 runtest update_hash_file2
 
 abort_if_multirust_is_installed() {
     try mkdir -p "$TEST_PREFIX/bin"
     try touch "$TEST_PREFIX/bin/multirust"
-    expect_output_fail "installing rust over multirust will result in breakage" rustup.sh --prefix="$TEST_PREFIX" --spec=nightly --update-hash-file="$TMP_DIR/update-hash"
+    expect_output_fail "installing rust over multirust will result in breakage" run_rustup --prefix="$TEST_PREFIX" --spec=nightly --update-hash-file="$TMP_DIR/update-hash"
     # If an uninstall script exists rustup will suggest running it
     try mkdir -p "$TEST_PREFIX/lib/rustlib"
     try touch "$TEST_PREFIX/lib/rustlib/uninstall.sh"
-    expect_output_fail "consider uninstalling multirust first" rustup.sh --prefix="$TEST_PREFIX" --spec=nightly --update-hash-file="$TMP_DIR/update-hash"
+    expect_output_fail "consider uninstalling multirust first" run_rustup --prefix="$TEST_PREFIX" --spec=nightly --update-hash-file="$TMP_DIR/update-hash"
     try rm "$TEST_PREFIX/bin/multirust"
 }
 runtest abort_if_multirust_is_installed
 
 disable_ldconfig() {
-    try rustup.sh --prefix="$TEST_PREFIX" --spec=nightly --disable-ldconfig
+    try run_rustup --prefix="$TEST_PREFIX" --spec=nightly --disable-ldconfig
 }
 runtest disable_ldconfig
 
