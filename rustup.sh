@@ -536,7 +536,7 @@ EOF
 	cat <<EOF
 
 The installer will run under 'sudo' and may ask you for your password. If you do
-not want the script to run 'sudo' then pass this script the --disable-sudo flag.
+not want the script to run 'sudo' then pass it the --disable-sudo flag.
 EOF
     fi
 
