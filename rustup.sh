@@ -96,7 +96,7 @@ set_globals() {
     # The directory on the server containing the dist artifacts
     rust_dist_dir=dist
 
-    default_channel="beta"
+    default_channel="stable"
 
     # Set up the rustup data dir
     rustup_dir="${RUSTUP_HOME-$HOME/.rustup}"
