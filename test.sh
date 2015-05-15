@@ -300,7 +300,7 @@ get_architecture() {
 	fi
     fi
 
-    local _arch="$_cputype-$_ostype" 
+    local _arch="$_cputype-$_ostype"
 
     RETVAL="$_arch"
 }
@@ -674,7 +674,7 @@ runtest uninstall_not_installed
 
 with_date() {
     try run_rustup --prefix="$TEST_PREFIX" --date=2015-01-01
-    expect_output_ok "hash-beta-1" "$TEST_PREFIX/bin/rustc" --version
+    expect_output_ok "hash-stable-1" "$TEST_PREFIX/bin/rustc" --version
 }
 runtest with_date
 
