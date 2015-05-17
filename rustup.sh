@@ -517,7 +517,7 @@ EOF
 	fi
     fi
 
-    
+
     if [ "$_uninstall" = false ]; then
 	cat <<EOF
 
@@ -1327,6 +1327,7 @@ Options:
      --disable-ldconfig                Do not run ldconfig on Linux
      --disable-sudo                    Do not run installer under sudo
      --save                            Save downloads for future reuse
+     --yes, -y                         Disable the interactive mode
 '
 }
 
