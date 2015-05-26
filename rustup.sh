@@ -1318,7 +1318,7 @@ Usage: rustup.sh [--verbose]
 
 Options:
 
-     --channel=(stable|beta|nightly)   Install from channel (default beta)
+     --channel=(stable|beta|nightly)   Install from channel (default stable)
      --date=<YYYY-MM-DD>               Install from archives
      --revision=<version-number>       Install a specific release
      --spec=<toolchain-spec>           Install from toolchain spec
