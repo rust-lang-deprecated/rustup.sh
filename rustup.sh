@@ -1014,7 +1014,7 @@ get_architecture() {
 	# if configure is running in an interactive bash shell. /usr/bin/env
 	# exists *everywhere*.
 	local _bin_to_probe="$SHELL"
-	if [ -z "$_bin_to_probe" -a -e "/usr/bin/env" ]; then
+	if [ ! -e "$_bin_to_probe" -a -e "/usr/bin/env" ]; then
 	    _bin_to_probe="/usr/bin/env"
 	fi
 	if [ -n "$_bin_to_probe" ]; then
