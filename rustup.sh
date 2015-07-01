@@ -41,10 +41,10 @@
 # to indicate the error code won't be handled, and `ensure`, which
 # prints the command on failure, and also exits the process.
 #
-# Pass errors on on: `run cmd arg1 arg2 || return 1`. `run` will run
+# Pass errors on: `run cmd arg1 arg2 || return 1`. `run` will run
 # the command, printing it if it fails; the `|| return 1` passes the
 # error on to the caller. `ensure cmd arg1 arg1`, runs the command,
-# printing it if it fails, and termining execution.
+# printing it if it fails, and terminating execution.
 #
 # Don't make typos. You just have to be better than that.
 #
