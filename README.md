@@ -67,3 +67,10 @@ rustup.sh --revision=1.0.0-beta
 * Error on unknown command line options.
 * Do cleanup of in-use temp files on trap.
 * Don't clobber multirust if it is installed at the destination prefix.
+
+# License
+
+This software is distributed under the terms of both the MIT license
+and/or the Apache License (Version 2.0), at your option.
+
+See [LICENSE-APACHE](LICENSE-APACHE), [LICENSE-MIT](LICENSE-MIT) for details.
