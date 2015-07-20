@@ -1013,7 +1013,7 @@ get_architecture() {
 	# $SHELL does not exist in standard 'sh', so probably only exists
 	# if configure is running in an interactive bash shell. /usr/bin/env
 	# exists *everywhere*.
-	local _bin_to_probe="$SHELL"
+	local _bin_to_probe="${SHELL-bogus_shell}"
 	if [ ! -e "$_bin_to_probe" -a -e "/usr/bin/env" ]; then
 	    _bin_to_probe="/usr/bin/env"
 	fi
