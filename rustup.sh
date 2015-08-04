@@ -1354,7 +1354,7 @@ err() {
 
 need_cmd() {
     if ! command -v "$1" > /dev/null 2>&1
-    then err "need $1"
+    then err "need '$1' (command not found)"
     fi
 }
 
