@@ -975,7 +975,7 @@ get_architecture() {
 	    ;;
 
 	MINGW* | MSYS*)
-	    err "unimplemented windows arch detection"
+	    local _ostype=pc-windows-gnu
 	    ;;
 
 	*)
