@@ -974,7 +974,7 @@ get_architecture() {
 	    local _ostype=apple-darwin
 	    ;;
 
-	MINGW* | MSYS*)
+	MINGW* | MSYS* | CYGWIN*)
 	    local _ostype=pc-windows-gnu
 	    ;;
 
