@@ -642,6 +642,21 @@ export RUSTUP_GPG_KEY
 
 # Tell rustup where to download stuff from
 RUSTUP_DIST_SERVER="file://$(abs_path "$MOCK_DIST_DIR")"
+
+get_architecture
+arch="$RETVAL"
+
+# HACK: Frob `/c/` prefix into `c:/` on windows to make curl happy
+case "$arch" in
+*pc-windows*)
+    is_windows=true
+    RUSTUP_DIST_SERVER=`printf '%s' "$RUSTUP_DIST_SERVER" | sed s~file:///c/~file://c:/~`
+    ;;
+*)
+    is_windows=false
+    ;;
+esac
+
 export RUSTUP_DIST_SERVER
 
 # Set up the PATH to find rustup.sh
