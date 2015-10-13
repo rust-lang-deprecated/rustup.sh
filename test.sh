@@ -259,11 +259,11 @@ get_architecture() {
 	    ;;
 
 	MINGW* | MSYS*)
-	    err "unimplemented windows arch detection"
+	    fail "unimplemented windows arch detection"
 	    ;;
 
 	*)
-	    err "unrecognized OS type: $_ostype"
+	    fail "unrecognized OS type: $_ostype"
 	    ;;
 
     esac
@@ -288,7 +288,7 @@ get_architecture() {
             ;;
 
 	*)
-            err "unknown CPU type: $CFG_CPUTYPE"
+            fail "unknown CPU type: $CFG_CPUTYPE"
 
     esac
 
