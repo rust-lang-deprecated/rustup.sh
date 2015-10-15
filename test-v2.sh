@@ -451,17 +451,30 @@ build_mock_combined_installer() {
 }
 
 build_mock_sums_and_sigs() {
+    local _dir="$1"
+
     if command -v gpg > /dev/null 2>&1; then
-        (cd "$MOCK_BUILD_DIR/dist" && for i in *; do
-                gpg --no-default-keyring --secret-keyring "$TEST_SECRET_KEY" \
-                    --keyring "$TEST_PUBLIC_KEY" \
-                    --no-tty --yes -a --detach-sign "$i"
-                done)
+        (cd "$_dir" && for i in *; do
+            if [ ! -d "$i" ]; then
+                build_sum_and_sig "$i"
+            fi
+        done)
     else
         say "gpg not found. not testing signature verification"
-        (cd "$MOCK_BUILD_DIR/dist" && for i in *; do echo "nosig" > "$i.asc"; done)
+        (cd "$_dir" && for i in *; do
+            echo "nosig" > "$i.asc"
+            shasum -a256 "$i" > "$i.sha256"
+        done)
     fi
-    (cd "$MOCK_BUILD_DIR/dist" && for i in *; do shasum -a256 $i > $i.sha256; done)
+}
+
+build_sum_and_sig() {
+    local _file="$1"
+
+    gpg --no-default-keyring --secret-keyring "$TEST_SECRET_KEY" \
+        --keyring "$TEST_PUBLIC_KEY" \
+        --no-tty --yes -a --detach-sign "$_file"
+    shasum -a256 "$_file" > "$_file.sha256"
 }
 
 build_mock_channel_manifest() {
@@ -544,7 +557,7 @@ build_mock_channel() {
     build_mock_rust_docs_installer "$_package"
     build_mock_combined_installer "$_package"
     build_mock_channel_manifest "$_channel" "$_date" "$_version"
-    build_mock_sums_and_sigs
+    build_mock_sums_and_sigs "$MOCK_BUILD_DIR/dist"
 
     mkdir -p "$MOCK_DIST_DIR/dist/$_date"
     cp "$MOCK_BUILD_DIR/dist"/* "$MOCK_DIST_DIR/dist/$_date/"
@@ -792,6 +805,43 @@ disable_ldconfig() {
     try run_rustup --prefix="$TEST_PREFIX" --spec=nightly --disable-ldconfig
 }
 runtest disable_ldconfig
+
+bad_manifest_v2_version() {
+    try cp "$MOCK_DIST_DIR/dist/channel-rust-nightly.toml" "$MOCK_DIST_DIR/dist/back.tmp"
+    cat "$MOCK_DIST_DIR/dist/channel-rust-nightly.toml" | sed 's~manifest-version = \"2\"~manifest-version = \"3\"~' \
+        > "$MOCK_DIST_DIR/dist/tmp.toml"
+    try cp "$MOCK_DIST_DIR/dist/tmp.toml" "$MOCK_DIST_DIR/dist/channel-rust-nightly.toml"
+    (cd "$MOCK_DIST_DIR/dist" && build_sum_and_sig "channel-rust-nightly.toml")
+    expect_output_fail "channel manifest has unknown version: 3" run_rustup --prefix="$TEST_PREFIX" --spec=nightly
+    expect_output_fail "failed to validate channel manifest for 'nightly'" run_rustup --prefix="$TEST_PREFIX" --spec=nightly
+    try cp "$MOCK_DIST_DIR/dist/back.tmp" "$MOCK_DIST_DIR/dist/channel-rust-nightly.toml"
+    (cd "$MOCK_DIST_DIR/dist" && build_sum_and_sig "channel-rust-nightly.toml")
+}
+runtest bad_manifest_v2_version
+
+manifest_v2_no_version() {
+    try cp "$MOCK_DIST_DIR/dist/channel-rust-nightly.toml" "$MOCK_DIST_DIR/dist/back.tmp"
+    cat "$MOCK_DIST_DIR/dist/channel-rust-nightly.toml" | sed 's~manifest-version = \"2\"~~' \
+        > "$MOCK_DIST_DIR/dist/tmp.toml"
+    try cp "$MOCK_DIST_DIR/dist/tmp.toml" "$MOCK_DIST_DIR/dist/channel-rust-nightly.toml"
+    (cd "$MOCK_DIST_DIR/dist" && build_sum_and_sig "channel-rust-nightly.toml")
+    expect_output_fail "unable to find manifest version" run_rustup --prefix="$TEST_PREFIX" --spec=nightly
+    try cp "$MOCK_DIST_DIR/dist/back.tmp" "$MOCK_DIST_DIR/dist/channel-rust-nightly.toml"
+    (cd "$MOCK_DIST_DIR/dist" && build_sum_and_sig "channel-rust-nightly.toml")
+}
+runtest manifest_v2_no_version
+
+manifest_v2_no_rust_url() {
+    try cp "$MOCK_DIST_DIR/dist/channel-rust-nightly.toml" "$MOCK_DIST_DIR/dist/back.tmp"
+    cat "$MOCK_DIST_DIR/dist/channel-rust-nightly.toml" | sed 's~url = .*~~' \
+        > "$MOCK_DIST_DIR/dist/tmp.toml"
+    try cp "$MOCK_DIST_DIR/dist/tmp.toml" "$MOCK_DIST_DIR/dist/channel-rust-nightly.toml"
+    (cd "$MOCK_DIST_DIR/dist" && build_sum_and_sig "channel-rust-nightly.toml")
+    expect_output_fail "unable to find rust package url in manifest" run_rustup --prefix="$TEST_PREFIX" --spec=nightly
+    try cp "$MOCK_DIST_DIR/dist/back.tmp" "$MOCK_DIST_DIR/dist/channel-rust-nightly.toml"
+    (cd "$MOCK_DIST_DIR/dist" && build_sum_and_sig "channel-rust-nightly.toml")
+}
+runtest manifest_v2_no_rust_url
 
 echo
 echo "SUCCESS"

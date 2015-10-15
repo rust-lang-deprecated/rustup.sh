@@ -592,9 +592,16 @@ install_toolchain_from_dist() {
         local _manifest="$RETVAL"
         assert_nz "$_manifest" "manifest"
 
+        validate_manifest_v2 "$_manifest"
+        if [ $? != 0 ]; then
+            say_err "failed to validate channel manifest for '$_toolchain'"
+            return 1
+        fi
+
         determine_remote_rust_installer_location_v2 "$_manifest"
         if [ $? != 0 ]; then
-            err "unable to find installer url in manifest"
+            say_err "unable to find installer url in manifest"
+            return 1
         fi
         local _remote_rust_installer="$RETVAL"
     else
@@ -730,60 +737,7 @@ remove_toolchain() {
     fi
 }
 
-# Manifest interface
-
-determine_remote_rust_installer_location_v2() {
-    local _manifest="$1"
-
-    get_architecture || return 1
-    local _arch="$RETVAL"
-    assert_nz "$_arch" "arch"
-
-    toml_find_package_url "$_manifest" rust "$_arch" || return 1
-    local _url="$RETVAL"
-    RETVAL="$_url"
-}
-
-toml_find_package_url() {
-    local _manifest="$1"
-    local _package="$2"
-    local _arch="$3"
-
-    make_temp_dir
-    local _workdir="$RETVAL"
-    assert_nz "$_workdir" "workdir"
-
-    local _tmpfile="$_workdir/manifest"
-    ensure printf "%s" "$_manifest" > "$_tmpfile"
-
-    local _found_package=false
-    local _found_url=false
-    local _url=""
-    local _line
-    while read _line; do
-        case "$_line" in
-            # First look for the package header
-            *"[$_package.$_arch]"*)
-                if [ "$_found_package" = true ]; then err "found package twice"; fi
-                _found_package=true
-                ;;
-
-             # Then find the url
-             *url*=*)
-                if [ "$_found_package" = true -a "$_found_url" = false ]; then
-                    _url=`ensure printf "%s" "$_line" | ensure sed 's/.*url.*\"\(.*\)\".*/\1/'`
-                    assert_nz "$_url" "url is empty!"
-                    verbose_say "url: $_url"
-                    _found_url=true
-                fi
-                ;;
-        esac
-    done < "$_tmpfile"
-
-    ensure rm -R "$_workdir"
-
-    RETVAL="$_url"
-}
+# Manifest v2 interface
 
 # Returns 0 on success.
 # Returns the manifest as a string in RETVAL
@@ -826,6 +780,123 @@ download_rust_manifest_v2() {
     RETVAL="$_manifest"
     return 0
 }
+
+determine_remote_rust_installer_location_v2() {
+    local _manifest="$1"
+
+    get_architecture || return 1
+    local _arch="$RETVAL"
+    assert_nz "$_arch" "arch"
+
+    toml_find_package_url "$_manifest" rust "$_arch"
+    if [ $? != 0 ]; then
+        say_err "unable to find rust package url in manifest"
+        return 1
+    fi
+    local _url="$RETVAL"
+    RETVAL="$_url"
+}
+
+validate_manifest_v2() {
+    local _manifest="$1"
+
+    toml_find_manifest_version "$_manifest"
+    if [ $? != 0 ]; then
+        say_err "unable to find manifest version"
+        return 1
+    fi
+    local _manifest_version="$RETVAL"
+    assert_nz "$_manifest_version" "manifest_version"
+
+    case "$_manifest_version" in
+        2 )
+            ;;
+        * )
+            say_err "channel manifest has unknown version: $_manifest_version"
+            return 1
+            ;;
+    esac
+}
+
+# Manifest v2 toml parsing
+
+toml_find_package_url() {
+    local _manifest="$1"
+    local _package="$2"
+    local _arch="$3"
+
+    make_temp_dir
+    local _workdir="$RETVAL"
+    assert_nz "$_workdir" "workdir"
+
+    local _tmpfile="$_workdir/manifest"
+    ensure printf "%s" "$_manifest" > "$_tmpfile"
+
+    local _found_package=false
+    local _found_url=false
+    local _url=""
+    local _line
+    while read _line; do
+        case "$_line" in
+            # First look for the package header
+            *"[$_package.$_arch]"*)
+                if [ "$_found_package" = true ]; then err "found package twice"; fi
+                _found_package=true
+                ;;
+
+             # Then find the url
+             *url*=*)
+                if [ "$_found_package" = true -a "$_found_url" = false ]; then
+                    _url=`ensure printf "%s" "$_line" | ensure sed 's/.*url.*\"\(.*\)\".*/\1/'`
+                    assert_nz "$_url" "url is empty!"
+                    verbose_say "url: $_url"
+                    _found_url=true
+                fi
+                ;;
+        esac
+    done < "$_tmpfile"
+
+    ensure rm -R "$_workdir"
+
+    if [ "$_url" = "" ]; then
+        return 1
+    fi
+
+    RETVAL="$_url"
+}
+
+toml_find_manifest_version() {
+    local _manifest="$1"
+
+    make_temp_dir
+    local _workdir="$RETVAL"
+    assert_nz "$_workdir" "workdir"
+
+    local _tmpfile="$_workdir/manifest"
+    ensure printf "%s" "$_manifest" > "$_tmpfile"
+
+    local _manifest_version=""
+    local _line
+    while read _line; do
+        case "$_line" in
+             *manifest-version*=*)
+                _manifest_version=`ensure printf "%s" "$_line" | ensure sed 's/.*manifest-version.*\"\(.*\)\".*/\1/'`
+                assert_nz "$_manifest_version" "manifest_version is empty!"
+                verbose_say "manifest-version: $_manifest_version"
+                ;;
+        esac
+    done < "$_tmpfile"
+
+    ensure rm -R "$_workdir"
+
+    if [ "$_manifest_version" = "" ]; then
+        return 1
+    fi
+
+    RETVAL="$_manifest_version"
+}
+
+# Manifest v1 interface
 
 determine_remote_rust_installer_location() {
     local _toolchain="$1"
@@ -1356,6 +1427,7 @@ download_file_and_sig() {
     # Throwing away error text since this error is expected.
     check_sums "$_local_sums_file" > /dev/null 2>&1
     if [ $? = 0 ]; then
+        verbose_say "checksum good. download already complete"
         return 0
     fi
 
