@@ -472,15 +472,16 @@ build_mock_channel_manifest() {
     get_architecture
     local _arch="$RETVAL"
 
-    local _rust_tarball="$MOCK_BUILD_DIR/dist/rust-$_package-$_arch.tar.gz"
-    local _rustc_tarball="$MOCK_BUILD_DIR/dist/rustc-$_package-$_arch.tar.gz"
-    local _cargo_tarball="$MOCK_BUILD_DIR/dist/cargo-$_package-$_arch.tar.gz"
-    local _std_tarball="$MOCK_BUILD_DIR/dist/rust-std-$_package-$_arch.tar.gz"
-    local _cross_std_tarball="$MOCK_BUILD_DIR/dist/rust-std-$_package-x86_64-unknown-linux-musl.tar.gz"
-    local _docs_tarball="$MOCK_BUILD_DIR/dist/rust-docs-$_package-$_arch.tar.gz"
+    local _rust_tarball=`frob_win_path "file://$MOCK_DIST_DIR/dist/$_date/rust-$_package-$_arch.tar.gz"`
+    local _rustc_tarball=`frob_win_path "file://$MOCK_DIST_DIR/dist/$_date/rustc-$_package-$_arch.tar.gz"`
+    local _cargo_tarball=`frob_win_path "file://$MOCK_DIST_DIR/dist/$_date/cargo-$_package-$_arch.tar.gz"`
+    local _std_tarball=`frob_win_path "file://$MOCK_DIST_DIR/dist/$_date/rust-std-$_package-$_arch.tar.gz"`
+    local _cross_std_tarball=`frob_win_path "file://$MOCK_DIST_DIR/dist/$_date/rust-std-$_package-x86_64-unknown-linux-musl.tar.gz"`
+    local _docs_tarball=`frob_win_path "file://$MOCK_DIST_DIR/dist/$_date/rust-docs-$_package-$_arch.tar.gz"`
 
-    local _manifest="$MOCK_BUILD_DIR/dist/channel-rust-$_channel-v2"
+    local _manifest="$MOCK_BUILD_DIR/dist/channel-rust-$_channel.toml"
 
+    printf "%s\n" "manifest-version = \"2\"" >> "$_manifest"
     printf "%s\n" "date = \"$_date\"" >> "$_manifest"
 
     # the 'rust' package
@@ -567,6 +568,22 @@ set_current_dist_date() {
     cp "$MOCK_DIST_DIR/dist/$_dist_date"/* "$MOCK_DIST_DIR/dist/"
 }
 
+frob_win_path() {
+    local _path="$1"
+
+    get_architecture
+    arch="$RETVAL"
+
+    # HACK: Frob `/c/` prefix into `c:/` on windows to make curl happy
+    case "$arch" in
+    *pc-windows*)
+        printf '%s' "$_path" | sed s~file:///c/~file://c:/~
+        ;;
+    *)
+        ;;
+    esac
+}
+
 # Build the mock revisions
 build_mocks
 
@@ -577,20 +594,7 @@ export RUSTUP_GPG_KEY
 
 # Tell rustup where to download stuff from
 RUSTUP_DIST_SERVER="file://$(abs_path "$MOCK_DIST_DIR")"
-
-get_architecture
-arch="$RETVAL"
-
-# HACK: Frob `/c/` prefix into `c:/` on windows to make curl happy
-case "$arch" in
-*pc-windows*)
-    is_windows=true
-    RUSTUP_DIST_SERVER=`printf '%s' "$RUSTUP_DIST_SERVER" | sed s~file:///c/~file://c:/~`
-    ;;
-*)
-    is_windows=false
-    ;;
-esac
+RUSTUP_DIST_SERVER=`frob_win_path "$RUSTUP_DIST_SERVER"`
 
 export RUSTUP_DIST_SERVER
 

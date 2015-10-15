@@ -586,8 +586,23 @@ install_toolchain_from_dist() {
         say "gpg not available. signatures will not be verified"
     fi
 
-    determine_remote_rust_installer_location "$_toolchain" || return 1
-    local _remote_rust_installer="$RETVAL"
+    # First, try to download a v2 manifest, before falling back to v1 codepaths
+    download_rust_manifest_v2 "$_toolchain"
+    if [ $? = 0 ]; then
+        local _manifest="$RETVAL"
+        assert_nz "$_manifest" "manifest"
+
+        determine_remote_rust_installer_location_v2 "$_manifest"
+        if [ $? != 0 ]; then
+            err "unable to find installer url in manifest"
+        fi
+        local _remote_rust_installer="$RETVAL"
+    else
+        verbose_say "unable to find v2 manifest. trying v1"
+        determine_remote_rust_installer_location "$_toolchain" || return 1
+        local _remote_rust_installer="$RETVAL"
+    fi
+
     assert_nz "$_remote_rust_installer" "remote rust installer"
     verbose_say "remote rust installer location: $_remote_rust_installer"
 
@@ -717,6 +732,101 @@ remove_toolchain() {
 
 # Manifest interface
 
+determine_remote_rust_installer_location_v2() {
+    local _manifest="$1"
+
+    get_architecture || return 1
+    local _arch="$RETVAL"
+    assert_nz "$_arch" "arch"
+
+    toml_find_package_url "$_manifest" rust "$_arch" || return 1
+    local _url="$RETVAL"
+    RETVAL="$_url"
+}
+
+toml_find_package_url() {
+    local _manifest="$1"
+    local _package="$2"
+    local _arch="$3"
+
+    make_temp_dir
+    local _workdir="$RETVAL"
+    assert_nz "$_workdir" "workdir"
+
+    local _tmpfile="$_workdir/manifest"
+    ensure printf "%s" "$_manifest" > "$_tmpfile"
+
+    local _found_package=false
+    local _found_url=false
+    local _url=""
+    local _line
+    while read _line; do
+        case "$_line" in
+            # First look for the package header
+            *"[$_package.$_arch]"*)
+                if [ "$_found_package" = true ]; then err "found package twice"; fi
+                _found_package=true
+                ;;
+
+             # Then find the url
+             *url*=*)
+                if [ "$_found_package" = true -a "$_found_url" = false ]; then
+                    _url=`ensure printf "%s" "$_line" | ensure sed 's/.*url.*\"\(.*\)\".*/\1/'`
+                    assert_nz "$_url" "url is empty!"
+                    verbose_say "url: $_url"
+                    _found_url=true
+                fi
+                ;;
+        esac
+    done < "$_tmpfile"
+
+    ensure rm -R "$_workdir"
+
+    RETVAL="$_url"
+}
+
+# Returns 0 on success.
+# Returns the manifest as a string in RETVAL
+download_rust_manifest_v2() {
+    local _toolchain="$1"
+
+    case "$_toolchain" in
+	nightly | beta | stable )
+	    local _remote_rust_manifest="$dist_server/$rust_dist_dir/channel-rust-$_toolchain.toml"
+	    ;;
+
+	nightly-* | beta-* | stable-* )
+	    extract_channel_and_date_from_toolchain "$_toolchain" || return 1
+	    local _channel="$RETVAL_CHANNEL"
+	    local _date="$RETVAL_DATE"
+	    assert_nz "$_channel" "channel"
+	    assert_nz "$_date" "date"
+	    local _remote_rust_manifest="$dist_server/$rust_dist_dir/$_date/channel-rust-$_channel.toml"
+	    ;;
+
+	*)
+        verbose_say "interpreting toolchain spec as explicit version"
+	    local _remote_rust_manifest="$dist_server/$rust_dist_dir/channel-rust-$_toolchain.toml"
+	    ;;
+
+    esac
+
+    download_manifest "$_toolchain" "rust" "$_remote_rust_manifest" || return 1
+    local _manifest_file="$RETVAL"
+    local _manifest_cache="$RETVAL_CACHE"
+
+    local _manifest=`cat "$_manifest_file"`
+    if [ $? != 0 ]; then
+        say_err "unable to load manifest from disk"
+        run rm -R "$_manifest_cache"
+        return 1
+    fi
+
+    run rm -R "$_manifest_cache" || return 1
+    RETVAL="$_manifest"
+    return 0
+}
+
 determine_remote_rust_installer_location() {
     local _toolchain="$1"
 
@@ -748,7 +858,7 @@ determine_remote_rust_installer_location() {
 }
 
 # Returns 0 on success.
-# Returns the manifest file in RETVAL and it's cache dir in RETVAL_CACHE.
+# Returns the manifest file in RETVAL and its cache dir in RETVAL_CACHE.
 download_rust_manifest() {
     local _toolchain="$1"
 
@@ -806,6 +916,7 @@ get_remote_installer_location_from_manifest() {
     local _arch="$RETVAL"
     assert_nz "$_arch" "arch"
 
+    local _line
     while read _line; do
         # This regex checks for the version in addition to the package name because there
         # are package names that are substrings of other packages, 'rust-docs' vs. 'rust'.
