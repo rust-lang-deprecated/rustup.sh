@@ -77,7 +77,7 @@ set_globals() {
     default_dist_server="https://static.rust-lang.org"
     insecure_dist_server="http://static-rust-lang-org.s3-website-us-west-1.amazonaws.com"
     dist_server="${RUSTUP_DIST_SERVER-$default_dist_server}"
-    using_insecure_dist_server=false
+    gpg_available=false
 
     # Check to see if GNUPG version 2 is installed, falling back to using version 1 by default
     gpg_exe=gpg
@@ -85,12 +85,8 @@ set_globals() {
         gpg_exe=gpg2
     fi
 
-    # Disable https if we can gpg because cloudfront often gets our files out of sync
-    if [ "$dist_server" = "$default_dist_server" ]; then
-        if command -v "$gpg_exe" > /dev/null 2>&1; then
-            dist_server="$insecure_dist_server"
-            using_insecure_dist_server=true
-        fi
+    if command -v "$gpg_exe" > /dev/null 2>&1; then
+        gpg_available=true
     fi
 
     # The directory on the server containing the dist artifacts
@@ -579,7 +575,7 @@ install_toolchain_from_dist() {
         err "aborting"
     fi
 
-    if [ "$using_insecure_dist_server" = "true" ]; then
+    if [ "$gpg_available" = true ]; then
         # disabling https avoids rust#21293
         say "gpg available. signatures will be verified"
     else
