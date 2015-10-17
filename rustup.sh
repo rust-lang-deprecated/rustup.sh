@@ -300,9 +300,11 @@ handle_command_line_args() {
     local _update_hash_file=""
     local _disable_ldconfig=false
     local _disable_sudo=false
+    local _extra_targets=""
 
-    for arg in "$@"; do
-        case "$arg" in
+    local _arg
+    for _arg in "$@"; do
+        case "$_arg" in
             --save )
                 _save=true
                 ;;
@@ -338,21 +340,24 @@ handle_command_line_args() {
 
         esac
 
-        if is_value_arg "$arg" "prefix"; then
-            _prefix="$(get_value_arg "$arg")"
-        elif is_value_arg "$arg" "channel"; then
-            _channel="$(get_value_arg "$arg")"
-        elif is_value_arg "$arg" "date"; then
-            _date="$(get_value_arg "$arg")"
-        elif is_value_arg "$arg" "revision"; then
-            _revision="$(get_value_arg "$arg")"
-        elif is_value_arg "$arg" "spec"; then
-            _spec="$(get_value_arg "$arg")"
-        elif is_value_arg "$arg" "update-hash-file"; then
+        if is_value_arg "$_arg" "prefix"; then
+            _prefix="$(get_value_arg "$_arg")"
+        elif is_value_arg "$_arg" "channel"; then
+            _channel="$(get_value_arg "$_arg")"
+        elif is_value_arg "$_arg" "date"; then
+            _date="$(get_value_arg "$_arg")"
+        elif is_value_arg "$_arg" "revision"; then
+            _revision="$(get_value_arg "$_arg")"
+        elif is_value_arg "$_arg" "spec"; then
+            _spec="$(get_value_arg "$_arg")"
+        elif is_value_arg "$_arg" "update-hash-file"; then
             # This option is used by multirust to short-circuit reinstalls
             # when the channel has not been updated by examining a content
             # hash in the update-hash-file
-            _update_hash_file="$(get_value_arg "$arg")"
+            _update_hash_file="$(get_value_arg "$_arg")"
+        elif is_value_arg "$_arg" "with-target"; then
+            local _next_extra_target="$(get_value_arg "$_arg")"
+            _extra_targets="$_extra_targets $_next_extra_target"
         fi
     done
 
@@ -430,7 +435,7 @@ handle_command_line_args() {
     local _succeeded=true
     if [ "$_uninstall" = false ]; then
         install_toolchain_from_dist "$_toolchain" "$_prefix" "$_save" "$_update_hash_file" \
-                                    "$_disable_ldconfig" "$_disable_sudo"
+                                    "$_disable_ldconfig" "$_disable_sudo" "$_extra_targets"
         if [ $? != 0 ]; then
             _succeeded=false
         fi
@@ -459,7 +464,7 @@ is_value_arg() {
     local _arg="$1"
     local _name="$2"
 
-    echo "$arg" | grep -q -- "--$_name="
+    echo "$_arg" | grep -q -- "--$_name="
     return $?
 }
 
@@ -558,6 +563,7 @@ install_toolchain_from_dist() {
     local _update_hash_file="$4"
     local _disable_ldconfig="$5"
     local _disable_sudo="$6"
+    local _extra_targets="$7"
 
     # FIXME: Right now installing rust over top of multirust will
     # result in a broken multirust installation.
@@ -582,6 +588,16 @@ install_toolchain_from_dist() {
         say "gpg not available. signatures will not be verified"
     fi
 
+    # We're going to fill in this variables by interrogating the channel
+    # metadata. There are two revisions of the channel metadata, v1 was
+    # a very simple list of binaries; v2 has richer information about
+    # the available packages.
+    
+    # The URL of the main installer
+    local _remote_rust_installer
+    # A space-separated list of other things to install
+    local _extra_remote_installers
+
     # First, try to download a v2 manifest, before falling back to v1 codepaths
     download_rust_manifest_v2 "$_toolchain"
     if [ $? = 0 ]; then
@@ -599,21 +615,37 @@ install_toolchain_from_dist() {
             say_err "unable to find installer url in manifest"
             return 1
         fi
-        local _remote_rust_installer="$RETVAL"
+        _remote_rust_installer="$RETVAL"
+
+        if [ "$_extra_targets" != "" ]; then
+            # The user has asked for additional standard libraries.
+            # Figure out where they are.
+            determine_remote_std_locations_v2 "$_manifest" "$_extra_targets" || return 1
+            _extra_remote_installers="$RETVAL"
+        else
+            _extra_remote_installers=""
+        fi
+
     else
         verbose_say "unable to find v2 manifest. trying v1"
+
+        if [ "$_extra_targets" != "" ]; then
+	    say_err "v1 manifests don't support --with-target"
+            return 1
+	else
+	    _extra_remote_installers=""
+        fi
+
         determine_remote_rust_installer_location "$_toolchain" || return 1
-        local _remote_rust_installer="$RETVAL"
+        _remote_rust_installer="$RETVAL"
     fi
 
     assert_nz "$_remote_rust_installer" "remote rust installer"
     verbose_say "remote rust installer location: $_remote_rust_installer"
 
-    local _rust_installer_name="$(basename "$_remote_rust_installer")"
-    assert_nz "$_rust_installer_name" "rust installer name"
-
-    # Download and install toolchain
     say "downloading toolchain for '$_toolchain'"
+
+    # Download and install rust package
     download_and_check "$_remote_rust_installer" false "$_update_hash_file"
     # Hey! I need to check $? twice here, so it has to be
     # assigned to a named variable, otherwise the second
@@ -627,12 +659,65 @@ install_toolchain_from_dist() {
     if [ "$_retval" != 0 ]; then
         return 1
     fi
-    local _installer_file="$RETVAL"
-    local _installer_cache="$RETVAL_CACHE"
-    local _update_hash="$RETVAL_UPDATE_HASH"
-    assert_nz "$_installer_file" "installer_file"
-    assert_nz "$_installer_cache" "installer_cache"
-    assert_nz "$_update_hash" "update_hash"
+    local _rust_installer_file="$RETVAL"
+    local _rust_installer_cache="$RETVAL_CACHE"
+    local _rust_update_hash="$RETVAL_UPDATE_HASH"
+    assert_nz "$_rust_installer_file" "rust_installer_file"
+    assert_nz "$_rust_installer_cache" "rust_installer_cache"
+    assert_nz "$_rust_update_hash" "rust_update_hash"
+
+    say "installing toolchain for '$_toolchain'"
+
+    install_toolchain "$_rust_installer_file" "$_prefix" \
+                      "$_disable_ldconfig" "$_disable_sudo" "$_rust_installer_cache"
+    if [ $? != 0 ]; then
+        say_err "failed to install toolchain"
+	return 1
+    fi
+
+    # Download and install extra packages
+    # NB: Splitting $_extra_remote_installers on space by not quoting
+    local _extra_remote_installer
+    for _extra_remote_installer in $_extra_remote_installers; do
+	say "downloading extra component from $_extra_remote_installer"
+	download_and_check "$_extra_remote_installer" false ""
+	# Don't need to check for the second success value since
+	# we didn't pass an update hash file to download_and_check
+	if [ $? != 0 ]; then
+            return 1
+	fi
+	local _extra_installer_file="$RETVAL"
+	local _extra_installer_cache="$RETVAL_CACHE"
+	assert_nz "$_extra_installer_file" "extra_installer_file"
+	assert_nz "$_extra_installer_cache" "extra_installer_cache"
+
+	say "downloading extra component from $_extra_installer_file"
+
+	install_toolchain "$_extra_installer_file" "$_prefix" \
+			  "$_disable_ldconfig" "$_disable_sudo" "$_extra_installer_cache"
+	if [ $? != 0 ]; then
+            say_err "failed to install toolchain"
+	    return 1
+	fi
+    done
+
+    # Write the update hash of the rust toolchain to file so that,
+    # when invoked by multirust, the toolchain won't be reinstalled.
+    if [ -n "$_update_hash_file" ]; then
+        echo "$_rust_update_hash" > "$_update_hash_file"
+        if [ $? != 0 ]; then
+            say_err "failed to write update hash to file"
+            return 1
+        fi
+    fi
+}
+
+install_toolchain() {
+    local _installer_file="$1"
+    local _prefix="$2"
+    local _disable_ldconfig="$3"
+    local _disable_sudo="$4"
+    local _installer_cache="$5"
 
     # Create a temp directory to put the downloaded toolchain
     make_temp_dir
@@ -640,20 +725,18 @@ install_toolchain_from_dist() {
     assert_nz "$_workdir" "workdir"
     verbose_say "install work dir: $_workdir"
 
-    # There next few statements may all fail independently.
     local _failing=false
-
-    install_toolchain "$_toolchain" "$_installer_file" "$_workdir" "$_prefix" \
-                      "$_disable_ldconfig" "$_disable_sudo"
+    install_toolchain_with_workdir "$_installer_file" "$_prefix" \
+				   "$_disable_ldconfig" "$_disable_sudo" "$_workdir"
     if [ $? != 0 ]; then
-        say_err "failed to install toolchain"
         _failing=true
     fi
+    local _retval=$?
 
     run rm -R "$_workdir"
     if [ $? != 0 ]; then
         say_err "couldn't delete workdir"
-        _failing=true
+	_failing=true
     fi
 
     # Throw away the cache if not --save
@@ -666,27 +749,17 @@ install_toolchain_from_dist() {
         fi
     fi
 
-    # Write the update hash to file
-    if [ -n "$_update_hash_file" ]; then
-        echo "$_update_hash" > "$_update_hash_file"
-        if [ $? != 0 ]; then
-            say_err "failed to write update hash to file"
-            _failing=true
-        fi
-    fi
-
     if [ "$_failing" = true ]; then
-        return 1
+	return 1
     fi
 }
 
-install_toolchain() {
-    local _toolchain="$1"
-    local _installer="$2"
-    local _workdir="$3"
-    local _prefix="$4"
-    local _disable_ldconfig="$5"
-    local _disable_sudo="$6"
+install_toolchain_with_workdir() {
+    local _installer="$1"
+    local _prefix="$2"
+    local _disable_ldconfig="$3"
+    local _disable_sudo="$4"
+    local _workdir="$5"
 
     local _installer_dir="$_workdir/$(basename "$_installer" | sed s/.tar.gz$//)"
 
@@ -701,7 +774,6 @@ install_toolchain() {
     # Install the toolchain
     local _toolchain_dir="$_prefix"
     verbose_say "installing toolchain to '$_toolchain_dir'"
-    say "installing toolchain for '$_toolchain'"
 
     if [ "$_disable_ldconfig" = false ]; then
         maybe_sudo "$_disable_sudo" sh "$_installer_dir/install.sh" --prefix="$_toolchain_dir"
@@ -777,22 +849,6 @@ download_rust_manifest_v2() {
     return 0
 }
 
-determine_remote_rust_installer_location_v2() {
-    local _manifest="$1"
-
-    get_architecture || return 1
-    local _arch="$RETVAL"
-    assert_nz "$_arch" "arch"
-
-    toml_find_package_url "$_manifest" rust "$_arch"
-    if [ $? != 0 ]; then
-        say_err "unable to find rust package url in manifest"
-        return 1
-    fi
-    local _url="$RETVAL"
-    RETVAL="$_url"
-}
-
 validate_manifest_v2() {
     local _manifest="$1"
 
@@ -814,6 +870,43 @@ validate_manifest_v2() {
     esac
 }
 
+determine_remote_rust_installer_location_v2() {
+    local _manifest="$1"
+
+    get_architecture || return 1
+    local _arch="$RETVAL"
+    assert_nz "$_arch" "arch"
+
+    toml_find_package_url "$_manifest" rust "$_arch"
+    if [ $? != 0 ]; then
+        say_err "unable to find rust package url in manifest"
+        return 1
+    fi
+    local _url="$RETVAL"
+    RETVAL="$_url"
+}
+
+determine_remote_std_locations_v2() {
+    local _manifest="$1"
+    local _targets="$2"
+
+    # A space-separated list of URLs of std installers
+    local _urls=""
+
+    local _target
+    # NB: Purposefully not quoting $_targets to split on space
+    for _target in $_targets; do
+        toml_find_package_url "$_manifest" rust-std "$_target"
+        if [ $? != 0 ]; then
+            say_err "unable to find package url for std, for $_target"
+            return 1
+        fi
+        _urls="$_urls $RETVAL"
+    done
+
+    RETVAL="$_urls"
+}
+
 # Manifest v2 toml parsing
 
 toml_find_package_url() {
@@ -821,12 +914,17 @@ toml_find_package_url() {
     local _package="$2"
     local _arch="$3"
 
+    verbose_say "looking for $_package.$_arch in manifest"
+
     make_temp_dir
     local _workdir="$RETVAL"
     assert_nz "$_workdir" "workdir"
 
+    # Put the manifest in a temp file so it can be read back in
+    # Note the \n. This is needed for `read` to read the last line.
+    # I was surprised.
     local _tmpfile="$_workdir/manifest"
-    ensure printf "%s" "$_manifest" > "$_tmpfile"
+    ensure printf "%s\n" "$_manifest" > "$_tmpfile"
 
     local _found_package=false
     local _found_url=false
@@ -836,6 +934,7 @@ toml_find_package_url() {
         case "$_line" in
             # First look for the package header
             *"[$_package.$_arch]"*)
+                verbose_say "found $_package.$_arch section in manifest"
                 if [ "$_found_package" = true ]; then err "found package twice"; fi
                 _found_package=true
                 ;;

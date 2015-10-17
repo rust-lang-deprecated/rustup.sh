@@ -690,6 +690,18 @@ disable_ldconfig() {
 }
 runtest disable_ldconfig
 
+# v1 manifests don't support adding targets
+with_target_fails() {
+    expect_output_fail "v1 manifests don't support --with-target" \
+        run_rustup --prefix="$TEST_PREFIX" --spec=nightly --with-target="x86_64-unknown-linux-musl"
+}
+runtest with_target_fails
+
+add_target_fails() {
+    exit 1
+}
+runtest add_target_fails
+
 echo
 echo "SUCCESS"
 echo

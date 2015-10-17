@@ -35,6 +35,9 @@ MOCK_BUILD_DIR="$TMP_DIR/mock-build"
 TEST_PREFIX="$TMP_DIR/prefix"
 RUSTUP_HOME="$(abs_path "$TMP_DIR")/rustup"
 
+CROSS_ARCH1="x86_64-unknown-linux-musl"
+CROSS_ARCH2="arm-linux-androideabi"
+
 say() {
     echo "test: $1"
 }
@@ -389,8 +392,7 @@ build_mock_std_installer() {
 
 build_mock_cross_std_installer() {
     local _package="$1"
-    
-    local _arch="x86_64-unknown-linux-musl"
+    local _arch="$2"
 
     local _image="$MOCK_BUILD_DIR/image/std"
     mkdir -p "$_image/lib/rustlib/$_arch/lib/"
@@ -489,7 +491,8 @@ build_mock_channel_manifest() {
     local _rustc_tarball=`frob_win_path "file://$MOCK_DIST_DIR/dist/$_date/rustc-$_package-$_arch.tar.gz"`
     local _cargo_tarball=`frob_win_path "file://$MOCK_DIST_DIR/dist/$_date/cargo-$_package-$_arch.tar.gz"`
     local _std_tarball=`frob_win_path "file://$MOCK_DIST_DIR/dist/$_date/rust-std-$_package-$_arch.tar.gz"`
-    local _cross_std_tarball=`frob_win_path "file://$MOCK_DIST_DIR/dist/$_date/rust-std-$_package-x86_64-unknown-linux-musl.tar.gz"`
+    local _cross_std_tarball1=`frob_win_path "file://$MOCK_DIST_DIR/dist/$_date/rust-std-$_package-$CROSS_ARCH1.tar.gz"`
+    local _cross_std_tarball2=`frob_win_path "file://$MOCK_DIST_DIR/dist/$_date/rust-std-$_package-$CROSS_ARCH2.tar.gz"`
     local _docs_tarball=`frob_win_path "file://$MOCK_DIST_DIR/dist/$_date/rust-docs-$_package-$_arch.tar.gz"`
 
     local _manifest="$MOCK_BUILD_DIR/dist/channel-rust-$_channel.toml"
@@ -516,7 +519,10 @@ build_mock_channel_manifest() {
     printf "%s\n" "target = \"$_arch\"" >> "$_manifest"
     printf "%s\n" "[[rust.$_arch.extensions]]" >> "$_manifest"
     printf "%s\n" "pkg = \"rust-std\"" >> "$_manifest"
-    printf "%s\n" "target = \"x86_64-unknown-linux-musl\"" >> "$_manifest"
+    printf "%s\n" "target = \"$CROSS_ARCH1\"" >> "$_manifest"
+    printf "%s\n" "[[rust.$_arch.extensions]]" >> "$_manifest"
+    printf "%s\n" "pkg = \"rust-std\"" >> "$_manifest"
+    printf "%s\n" "target = \"$CROSS_ARCH2\"" >> "$_manifest"
  
     # the other packages
     printf "%s\n" "[rustc]" >> "$_manifest"
@@ -535,8 +541,10 @@ build_mock_channel_manifest() {
     printf "%s\n" "version = \"$_version\"" >> "$_manifest"
     printf "%s\n" "[rust-std.$_arch]" >> "$_manifest"
     printf "%s\n" "url = \"$_std_tarball\"" >> "$_manifest"
-    printf "%s\n" "[rust-std.x86_64-unknown-linux-musl]" >> "$_manifest"
-    printf "%s\n" "url = \"$_cross_std_tarball\"" >> "$_manifest"
+    printf "%s\n" "[rust-std.$CROSS_ARCH1]" >> "$_manifest"
+    printf "%s\n" "url = \"$_cross_std_tarball1\"" >> "$_manifest"
+    printf "%s\n" "[rust-std.$CROSS_ARCH2]" >> "$_manifest"
+    printf "%s\n" "url = \"$_cross_std_tarball2\"" >> "$_manifest"
 }
 
 build_mock_channel() {
@@ -551,7 +559,8 @@ build_mock_channel() {
 
     say "building mock channel $_version $_version_hash $_package $_channel $_date"    
     build_mock_std_installer "$_package"
-    build_mock_cross_std_installer "$_package"
+    build_mock_cross_std_installer "$_package" "$CROSS_ARCH1"
+    build_mock_cross_std_installer "$_package" "$CROSS_ARCH2"
     build_mock_rustc_installer "$_version" "$_version_hash" "$_package"
     build_mock_cargo_installer "$_version" "$_version_hash" "$_package"
     build_mock_rust_docs_installer "$_package"
@@ -842,6 +851,70 @@ manifest_v2_no_rust_url() {
     (cd "$MOCK_DIST_DIR/dist" && build_sum_and_sig "channel-rust-nightly.toml")
 }
 runtest manifest_v2_no_rust_url
+
+with_target() {
+    try run_rustup --prefix="$TEST_PREFIX" --spec=nightly --with-target=$CROSS_ARCH1
+    try test -e "$TEST_PREFIX/lib/rustlib/$CROSS_ARCH1/lib/libstd.rlib"
+}
+runtest with_target
+
+with_multiple_target() {
+    try run_rustup --prefix="$TEST_PREFIX" --spec=nightly \
+	--with-target="$CROSS_ARCH1" \
+	--with-target="$CROSS_ARCH2"
+    try test -e "$TEST_PREFIX/lib/rustlib/$CROSS_ARCH1/lib/libstd.rlib"
+    try test -e "$TEST_PREFIX/lib/rustlib/$CROSS_ARCH2/lib/libstd.rlib"
+}
+runtest with_multiple_target
+
+with_bogus_target() {
+    expect_output_fail "unable to find package url for std, for bogus" run_rustup --prefix="$TEST_PREFIX" --spec=nightly --with-target=bogus
+}
+runtest with_bogus_target
+
+with_multiple_targets_bogus() {
+    expect_output_fail "unable to find package url for std, for bogus" run_rustup --prefix="$TEST_PREFIX" --spec=nightly --with-target="$CROSS_ARCH1" --with-target=bogus
+}
+runtest with_multiple_targets_bogus
+
+with_host_target() {
+    get_architecture
+    local _arch="$RETVAL"
+    try run_rustup --prefix="$TEST_PREFIX" --spec=nightly --with-target="$_arch"
+}
+runtest with_host_target
+
+with_host_in_multiple_targets() {
+    get_architecture
+    local _arch="$RETVAL"
+    try run_rustup --prefix="$TEST_PREFIX" --spec=nightly --with-target="$_arch,$CROSS_ARCH1"
+}
+runtest with_host_in_multiple_targets
+
+add_target() {
+    exit 1
+}
+runtest add_target
+
+add_bogus_target() {
+    exit 1
+}
+runtest add_bogus_target
+
+add_existing_target() {
+    exit 1
+}
+runtest add_existing_target
+
+add_multiple_targets() {
+    exit 1
+}
+runtest add_multiple_targets
+
+update_with_extra_targets() {
+    exit 1
+}
+runtest update_with_extra_targets
 
 echo
 echo "SUCCESS"
