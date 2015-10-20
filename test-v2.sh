@@ -894,26 +894,6 @@ with_host_in_multiple_targets() {
 }
 runtest with_host_in_multiple_targets
 
-add_target() {
-    exit 1
-}
-runtest add_target
-
-add_bogus_target() {
-    exit 1
-}
-runtest add_bogus_target
-
-add_existing_target() {
-    exit 1
-}
-runtest add_existing_target
-
-add_multiple_targets() {
-    exit 1
-}
-runtest add_multiple_targets
-
 update_with_extra_targets() {
     # Expect that additional stds get updated when updating an existing installation
     set_current_dist_date 2015-01-01

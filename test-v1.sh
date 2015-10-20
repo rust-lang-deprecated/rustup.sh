@@ -697,11 +697,6 @@ with_target_fails() {
 }
 runtest with_target_fails
 
-add_target_fails() {
-    exit 1
-}
-runtest add_target_fails
-
 echo
 echo "SUCCESS"
 echo
