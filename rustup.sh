@@ -867,7 +867,7 @@ download_rust_manifest_v2() {
             ;;
 
         *)
-        verbose_say "interpreting toolchain spec as explicit version"
+            verbose_say "interpreting toolchain spec as explicit version"
             local _remote_rust_manifest="$dist_server/$rust_dist_dir/channel-rust-$_toolchain.toml"
             ;;
 
@@ -1649,6 +1649,8 @@ Options:
      --spec=<toolchain-spec>           Install from toolchain spec
      --prefix=<path>                   Install to a specific location (default /usr/local)
      --uninstall                       Uninstall instead of install
+     --with-target=<triple>            Also install the standard library for the given target
+                                       (this option may be provided multiple times)
      --disable-ldconfig                Do not run ldconfig on Linux
      --disable-sudo                    Do not run installer under sudo
      --save                            Save downloads for future reuse
