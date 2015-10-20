@@ -634,10 +634,10 @@ install_toolchain_from_dist() {
         verbose_say "unable to find v2 manifest. trying v1"
 
         if [ "$_extra_targets" != "" ]; then
-	    say_err "v1 manifests don't support --with-target"
+            say_err "v1 manifests don't support --with-target"
             return 1
-	else
-	    _extra_remote_installers=""
+        else
+            _extra_remote_installers=""
         fi
 
         determine_remote_rust_installer_location "$_toolchain" || return 1
@@ -676,33 +676,33 @@ install_toolchain_from_dist() {
                       "$_disable_ldconfig" "$_disable_sudo" "$_rust_installer_cache"
     if [ $? != 0 ]; then
         say_err "failed to install toolchain"
-	return 1
+        return 1
     fi
 
     # Download and install extra packages
     # NB: Splitting $_extra_remote_installers on space by not quoting
     local _extra_remote_installer
     for _extra_remote_installer in $_extra_remote_installers; do
-	say "downloading extra component from $_extra_remote_installer"
-	download_and_check "$_extra_remote_installer" false ""
-	# Don't need to check for the second success value since
-	# we didn't pass an update hash file to download_and_check
-	if [ $? != 0 ]; then
+        say "downloading extra component from $_extra_remote_installer"
+        download_and_check "$_extra_remote_installer" false ""
+        # Don't need to check for the second success value since
+        # we didn't pass an update hash file to download_and_check
+        if [ $? != 0 ]; then
             return 1
-	fi
-	local _extra_installer_file="$RETVAL"
-	local _extra_installer_cache="$RETVAL_CACHE"
-	assert_nz "$_extra_installer_file" "extra_installer_file"
-	assert_nz "$_extra_installer_cache" "extra_installer_cache"
+        fi
+        local _extra_installer_file="$RETVAL"
+        local _extra_installer_cache="$RETVAL_CACHE"
+        assert_nz "$_extra_installer_file" "extra_installer_file"
+        assert_nz "$_extra_installer_cache" "extra_installer_cache"
 
-	say "downloading extra component from $_extra_installer_file"
+        say "downloading extra component from $_extra_installer_file"
 
-	install_toolchain "$_extra_installer_file" "$_prefix" \
-			  "$_disable_ldconfig" "$_disable_sudo" "$_extra_installer_cache"
-	if [ $? != 0 ]; then
+        install_toolchain "$_extra_installer_file" "$_prefix" \
+                          "$_disable_ldconfig" "$_disable_sudo" "$_extra_installer_cache"
+        if [ $? != 0 ]; then
             say_err "failed to install toolchain"
-	    return 1
-	fi
+            return 1
+        fi
     done
 
     # Write the update hash of the rust toolchain to file so that,
@@ -729,21 +729,21 @@ merge_existing_extra_targets() {
 
     local _component
     while read _component in; do
-	case "$_component" in
-	    rust-std-*)
-		# Extract the triple
-		local _arch="$(ensure pintf "%s" "$_toolchain" | ensure sed "s/rust-std-//")"
-		say_verbose "XXXX $_arch"
-		assert_nz "$_arch", "arch"
-		# See if we've already got it
-		ignore printf "%s" "$_extra_targets" | ignore grep -q "$_arch"
-		if [ $? = 0 ]; then
-		    _extra_targets="$_extra_targets $_arch"
-		fi
-	    ;;
-	    *)
-	    ;;
-	esac
+        case "$_component" in
+            rust-std-*)
+                # Extract the triple
+                local _arch="$(ensure pintf "%s" "$_toolchain" | ensure sed "s/rust-std-//")"
+                say_verbose "XXXX $_arch"
+                assert_nz "$_arch", "arch"
+                # See if we've already got it
+                ignore printf "%s" "$_extra_targets" | ignore grep -q "$_arch"
+                if [ $? = 0 ]; then
+                    _extra_targets="$_extra_targets $_arch"
+                fi
+            ;;
+            *)
+            ;;
+        esac
     done < "$_components_file"
 
     RETVAL="$_extra_targets"
@@ -765,7 +765,7 @@ install_toolchain() {
 
     local _failing=false
     install_toolchain_with_workdir "$_installer_file" "$_prefix" \
-				   "$_disable_ldconfig" "$_disable_sudo" "$_workdir"
+                                   "$_disable_ldconfig" "$_disable_sudo" "$_workdir"
     if [ $? != 0 ]; then
         _failing=true
     fi
@@ -774,7 +774,7 @@ install_toolchain() {
     run rm -R "$_workdir"
     if [ $? != 0 ]; then
         say_err "couldn't delete workdir"
-	_failing=true
+        _failing=true
     fi
 
     # Throw away the cache if not --save
@@ -788,7 +788,7 @@ install_toolchain() {
     fi
 
     if [ "$_failing" = true ]; then
-	return 1
+        return 1
     fi
 }
 
@@ -851,23 +851,23 @@ download_rust_manifest_v2() {
     local _toolchain="$1"
 
     case "$_toolchain" in
-	nightly | beta | stable )
-	    local _remote_rust_manifest="$dist_server/$rust_dist_dir/channel-rust-$_toolchain.toml"
-	    ;;
+        nightly | beta | stable )
+            local _remote_rust_manifest="$dist_server/$rust_dist_dir/channel-rust-$_toolchain.toml"
+            ;;
 
-	nightly-* | beta-* | stable-* )
-	    extract_channel_and_date_from_toolchain "$_toolchain" || return 1
-	    local _channel="$RETVAL_CHANNEL"
-	    local _date="$RETVAL_DATE"
-	    assert_nz "$_channel" "channel"
-	    assert_nz "$_date" "date"
-	    local _remote_rust_manifest="$dist_server/$rust_dist_dir/$_date/channel-rust-$_channel.toml"
-	    ;;
+        nightly-* | beta-* | stable-* )
+            extract_channel_and_date_from_toolchain "$_toolchain" || return 1
+            local _channel="$RETVAL_CHANNEL"
+            local _date="$RETVAL_DATE"
+            assert_nz "$_channel" "channel"
+            assert_nz "$_date" "date"
+            local _remote_rust_manifest="$dist_server/$rust_dist_dir/$_date/channel-rust-$_channel.toml"
+            ;;
 
-	*)
+        *)
         verbose_say "interpreting toolchain spec as explicit version"
-	    local _remote_rust_manifest="$dist_server/$rust_dist_dir/channel-rust-$_toolchain.toml"
-	    ;;
+            local _remote_rust_manifest="$dist_server/$rust_dist_dir/channel-rust-$_toolchain.toml"
+            ;;
 
     esac
 

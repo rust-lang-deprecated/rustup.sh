@@ -863,8 +863,8 @@ runtest with_target
 
 with_multiple_target() {
     try run_rustup --prefix="$TEST_PREFIX" --spec=nightly \
-	--with-target="$CROSS_ARCH1" \
-	--with-target="$CROSS_ARCH2"
+        --with-target="$CROSS_ARCH1" \
+        --with-target="$CROSS_ARCH2"
     try test -e "$TEST_PREFIX/lib/rustlib/$CROSS_ARCH1/lib/libstd.rlib"
     try test -e "$TEST_PREFIX/lib/rustlib/$CROSS_ARCH2/lib/libstd.rlib"
 }
