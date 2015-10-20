@@ -732,13 +732,15 @@ merge_existing_extra_targets() {
         case "$_component" in
             rust-std-*)
                 # Extract the triple
-                local _arch="$(ensure pintf "%s" "$_toolchain" | ensure sed "s/rust-std-//")"
-                say_verbose "XXXX $_arch"
+                local _arch="$(ensure printf "%s" "$_component" | ensure sed "s/rust-std-//")"
                 assert_nz "$_arch", "arch"
                 # See if we've already got it
                 ignore printf "%s" "$_extra_targets" | ignore grep -q "$_arch"
-                if [ $? = 0 ]; then
+                if [ $? != 0 ]; then
+                    verbose_say "found extra std component: $_arch"
                     _extra_targets="$_extra_targets $_arch"
+                else
+                    verbose_say "already installing extra std component: $_arch"
                 fi
             ;;
             *)

@@ -901,7 +901,7 @@ update_with_extra_targets() {
     try test -e "$TEST_PREFIX/lib/rustlib/$CROSS_ARCH1/lib/2015-01-01"
     try test ! -e "$TEST_PREFIX/lib/rustlib/$CROSS_ARCH1/lib/2015-01-02"
     set_current_dist_date 2015-01-02
-    try run_rustup --prefix="$TEST_PREFIX" --spec=nightly --update-hash-file="$TMP_DIR/update-hash" --with-target="$CROSS_ARCH1"
+    try run_rustup --prefix="$TEST_PREFIX" --spec=nightly --update-hash-file="$TMP_DIR/update-hash"
     try test ! -e "$TEST_PREFIX/lib/rustlib/$CROSS_ARCH1/lib/2015-01-01"
     try test -e "$TEST_PREFIX/lib/rustlib/$CROSS_ARCH1/lib/2015-01-02"
 }
