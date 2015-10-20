@@ -588,6 +588,11 @@ install_toolchain_from_dist() {
         say "gpg not available. signatures will not be verified"
     fi
 
+    # Inspect any existing installation for additional stds that must be upgraded
+    # and add them to the list
+    merge_existing_extra_targets "$_extra_targets" "$_prefix" || return 1
+    _extra_targets="$RETVAL"
+
     # We're going to fill in this variables by interrogating the channel
     # metadata. There are two revisions of the channel metadata, v1 was
     # a very simple list of binaries; v2 has richer information about
@@ -598,7 +603,7 @@ install_toolchain_from_dist() {
     # A space-separated list of other things to install
     local _extra_remote_installers
 
-    # First, try to download a v2 manifest, before falling back to v1 codepaths
+    # First, try to download a v2 manifest, before falling back to v1 codepaths.
     download_rust_manifest_v2 "$_toolchain"
     if [ $? = 0 ]; then
         local _manifest="$RETVAL"
@@ -625,7 +630,6 @@ install_toolchain_from_dist() {
         else
             _extra_remote_installers=""
         fi
-
     else
         verbose_say "unable to find v2 manifest. trying v1"
 
@@ -710,6 +714,40 @@ install_toolchain_from_dist() {
             return 1
         fi
     fi
+}
+
+merge_existing_extra_targets() {
+    local _extra_targets="$1"
+    local _prefix="$2"
+
+    local _components_file="$_prefix/lib/rustlib/components"
+
+    if [ ! -e "$_components_file" ]; then
+       RETVAL="$_extra_targets"
+       return 0
+    fi
+
+    local _component
+    while read _component in; do
+	case "$_component" in
+	    rust-std-*)
+		# Extract the triple
+		local _arch="$(ensure pintf "%s" "$_toolchain" | ensure sed "s/rust-std-//")"
+		say_verbose "XXXX $_arch"
+		assert_nz "$_arch", "arch"
+		# See if we've already got it
+		ignore printf "%s" "$_extra_targets" | ignore grep -q "$_arch"
+		if [ $? = 0 ]; then
+		    _extra_targets="$_extra_targets $_arch"
+		fi
+	    ;;
+	    *)
+	    ;;
+	esac
+    done < "$_components_file"
+
+    RETVAL="$_extra_targets"
+    return 0
 }
 
 install_toolchain() {

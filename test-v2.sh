@@ -393,10 +393,13 @@ build_mock_std_installer() {
 build_mock_cross_std_installer() {
     local _package="$1"
     local _arch="$2"
+    local _date="$3"
 
     local _image="$MOCK_BUILD_DIR/image/std"
     mkdir -p "$_image/lib/rustlib/$_arch/lib/"
+    # Just some files to test for
     echo "test" > "$_image/lib/rustlib/$_arch/lib/libstd.rlib"
+    echo "test" > "$_image/lib/rustlib/$_arch/lib/$_date"
 
     mkdir -p "$MOCK_BUILD_DIR/dist"
     try sh "$S/rust-installer/gen-installer.sh" \
@@ -559,8 +562,8 @@ build_mock_channel() {
 
     say "building mock channel $_version $_version_hash $_package $_channel $_date"    
     build_mock_std_installer "$_package"
-    build_mock_cross_std_installer "$_package" "$CROSS_ARCH1"
-    build_mock_cross_std_installer "$_package" "$CROSS_ARCH2"
+    build_mock_cross_std_installer "$_package" "$CROSS_ARCH1" "$_date"
+    build_mock_cross_std_installer "$_package" "$CROSS_ARCH2" "$_date"
     build_mock_rustc_installer "$_version" "$_version_hash" "$_package"
     build_mock_cargo_installer "$_version" "$_version_hash" "$_package"
     build_mock_rust_docs_installer "$_package"
@@ -912,7 +915,15 @@ add_multiple_targets() {
 runtest add_multiple_targets
 
 update_with_extra_targets() {
-    exit 1
+    # Expect that additional stds get updated when updating an existing installation
+    set_current_dist_date 2015-01-01
+    try run_rustup --prefix="$TEST_PREFIX" --spec=nightly --update-hash-file="$TMP_DIR/update-hash" --with-target="$CROSS_ARCH1"
+    try test -e "$TEST_PREFIX/lib/rustlib/$CROSS_ARCH1/lib/2015-01-01"
+    try test ! -e "$TEST_PREFIX/lib/rustlib/$CROSS_ARCH1/lib/2015-01-02"
+    set_current_dist_date 2015-01-02
+    try run_rustup --prefix="$TEST_PREFIX" --spec=nightly --update-hash-file="$TMP_DIR/update-hash" --with-target="$CROSS_ARCH1"
+    try test ! -e "$TEST_PREFIX/lib/rustlib/$CROSS_ARCH1/lib/2015-01-01"
+    try test -e "$TEST_PREFIX/lib/rustlib/$CROSS_ARCH1/lib/2015-01-02"
 }
 runtest update_with_extra_targets
 
