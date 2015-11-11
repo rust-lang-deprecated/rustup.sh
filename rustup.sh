@@ -944,6 +944,9 @@ determine_remote_std_locations_v2() {
     # A space-separated list of URLs of std installers
     local _urls=""
 
+    # Replace commas with spaces
+    _targets="$(printf "%s" "$_targets" | sed "s/,/ /g")"
+
     local _target
     # NB: Purposefully not quoting $_targets to split on space
     for _target in $_targets; do
