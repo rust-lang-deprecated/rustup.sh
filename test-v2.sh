@@ -907,6 +907,13 @@ update_with_extra_targets() {
 }
 runtest update_with_extra_targets
 
+explicit_version_with_target() {
+    try run_rustup --prefix="$TEST_PREFIX" --revision=1.0.0
+    try test -e "$TEST_PREFIX/bin/rustc"
+    return 1
+}
+runtest explicit_version_with_target
+
 echo
 echo "SUCCESS"
 echo

@@ -588,9 +588,13 @@ install_toolchain_from_dist() {
         say "gpg not available. signatures will not be verified"
     fi
 
+    get_architecture || return 1
+    local _arch="$RETVAL"
+    assert_nz "$_arch" "arch"
+
     # Inspect any existing installation for additional stds that must be upgraded
     # and add them to the list
-    merge_existing_extra_targets "$_extra_targets" "$_prefix" || return 1
+    merge_existing_extra_targets "$_extra_targets" "$_arch" "$_prefix" || return 1
     _extra_targets="$RETVAL"
 
     # We're going to fill in this variables by interrogating the channel
@@ -718,7 +722,8 @@ install_toolchain_from_dist() {
 
 merge_existing_extra_targets() {
     local _extra_targets="$1"
-    local _prefix="$2"
+    local _primary_arch="$2"
+    local _prefix="$3"
 
     local _components_file="$_prefix/lib/rustlib/components"
 
@@ -735,16 +740,22 @@ merge_existing_extra_targets() {
                 local _arch="$(ensure printf "%s" "$_component" | ensure sed "s/rust-std-//")"
                 assert_nz "$_arch", "arch"
                 # See if we've already got it
-                ignore printf "%s" "$_extra_targets" | ignore grep -q "$_arch"
-                if [ $? != 0 ]; then
-                    verbose_say "found extra std component: $_arch"
-                    _extra_targets="$_extra_targets $_arch"
-                else
+                ignore printf "%s" "$_extra_targets" | grep -q "$_arch"
+                if [ $? = 0 ]; then
                     verbose_say "already installing extra std component: $_arch"
+		else
+		    # See if it's the primary target
+		    ignore printf "%s" "$_primary_arch" | grep -q "$_arch"
+		    if [ $? = 0 ]; then
+			verbose_say "already installing extra std component: $_arch"
+		    else
+			verbose_say "found extra std component: $_arch"
+			_extra_targets="$_extra_targets $_arch"
+		    fi
                 fi
-            ;;
+		;;
             *)
-            ;;
+		;;
         esac
     done < "$_components_file"
 
