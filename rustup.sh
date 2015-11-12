@@ -301,6 +301,7 @@ handle_command_line_args() {
     local _disable_ldconfig=false
     local _disable_sudo=false
     local _extra_targets=""
+    local _add_target=""
 
     local _arg
     for _arg in "$@"; do
@@ -358,6 +359,8 @@ handle_command_line_args() {
         elif is_value_arg "$_arg" "with-target"; then
             local _next_extra_target="$(get_value_arg "$_arg")"
             _extra_targets="$_extra_targets $_next_extra_target"
+	elif is_value_arg "$_arg" "add-target"; then
+	    _add_target="$(get_value_arg "$_arg")"
         fi
     done
 
@@ -388,6 +391,21 @@ handle_command_line_args() {
         fi
     fi
 
+    if [ -n "$_add_target" ]; then
+        if [ -n "$_channel" ]; then
+            err "the --add-target flag may not be combined with --channel"
+        fi
+        if [ -n "$_date" ]; then
+            err "the --add-target flag may not be combined with --date"
+        fi
+        if [ -n "$_spec" ]; then
+            err "the --add-target flag may not be combined with --spec"
+        fi
+        if [ -n "$_revision" ]; then
+            err "the --add-target flag may not be combined with --revision"
+        fi
+    fi
+
     if [ -z "$_channel" -a -z "$_revision" -a -z "$_spec" ]; then
         _channel="$default_channel"
     fi
@@ -407,6 +425,11 @@ handle_command_line_args() {
         _toolchain="$_spec"
     fi
     assert_nz "$_toolchain" "toolchain"
+
+    # --add-target is non-interactive
+    if [ -n "$_add_target" ]; then
+	flag_yes=true
+    fi
 
     if [ "$flag_yes" = false ]; then
         # Running in interactive mode, check that a tty exists
@@ -433,7 +456,12 @@ handle_command_line_args() {
 
     # OK, time to do the things
     local _succeeded=true
-    if [ "$_uninstall" = false ]; then
+    if [ -n "$_add_target" ]; then
+	add_target_to_install "$_prefix" "$_add_target" "$_save" "$_disable_sudo"
+	if [ $? != 0 ]; then
+	    _succeeded=false
+	fi
+    elif [ "$_uninstall" = false ]; then
         install_toolchain_from_dist "$_toolchain" "$_prefix" "$_save" "$_update_hash_file" \
                                     "$_disable_ldconfig" "$_disable_sudo" "$_extra_targets"
         if [ $? != 0 ]; then
@@ -607,11 +635,16 @@ install_toolchain_from_dist() {
     # A space-separated list of other things to install
     local _extra_remote_installers
 
+    local _manifest_to_stash=""
+
     # First, try to download a v2 manifest, before falling back to v1 codepaths.
     download_rust_manifest_v2 "$_toolchain"
     if [ $? = 0 ]; then
         local _manifest="$RETVAL"
         assert_nz "$_manifest" "manifest"
+
+	# We'll save the manifest in the install folder for future modifications
+	_manifest_to_stash="$_manifest"
 
         validate_manifest_v2 "$_manifest"
         if [ $? != 0 ]; then
@@ -677,7 +710,7 @@ install_toolchain_from_dist() {
     say "installing toolchain for '$_toolchain'"
 
     install_toolchain "$_rust_installer_file" "$_prefix" \
-                      "$_disable_ldconfig" "$_disable_sudo" "$_rust_installer_cache"
+                      "$_disable_ldconfig" "$_disable_sudo" "$_rust_installer_cache" "$_save"
     if [ $? != 0 ]; then
         say_err "failed to install toolchain"
         return 1
@@ -687,26 +720,7 @@ install_toolchain_from_dist() {
     # NB: Splitting $_extra_remote_installers on space by not quoting
     local _extra_remote_installer
     for _extra_remote_installer in $_extra_remote_installers; do
-        say "downloading extra component from $_extra_remote_installer"
-        download_and_check "$_extra_remote_installer" false ""
-        # Don't need to check for the second success value since
-        # we didn't pass an update hash file to download_and_check
-        if [ $? != 0 ]; then
-            return 1
-        fi
-        local _extra_installer_file="$RETVAL"
-        local _extra_installer_cache="$RETVAL_CACHE"
-        assert_nz "$_extra_installer_file" "extra_installer_file"
-        assert_nz "$_extra_installer_cache" "extra_installer_cache"
-
-        say "downloading extra component from $_extra_installer_file"
-
-        install_toolchain "$_extra_installer_file" "$_prefix" \
-                          "$_disable_ldconfig" "$_disable_sudo" "$_extra_installer_cache"
-        if [ $? != 0 ]; then
-            say_err "failed to install toolchain"
-            return 1
-        fi
+	install_extra_component "$_prefix" "$_extra_remote_installer" "$_disable_sudo" "$_save"
     done
 
     # Write the update hash of the rust toolchain to file so that,
@@ -717,6 +731,11 @@ install_toolchain_from_dist() {
             say_err "failed to write update hash to file"
             return 1
         fi
+    fi
+
+    # Install the manifest for future updates
+    if [ "$_manifest_to_stash" != "" ]; then
+	ensure printf "%s" "$_manifest_to_stash" > "$_prefix/lib/rustlib/channel-manifest.toml"
     fi
 }
 
@@ -769,6 +788,7 @@ install_toolchain() {
     local _disable_ldconfig="$3"
     local _disable_sudo="$4"
     local _installer_cache="$5"
+    local _save="$6"
 
     # Create a temp directory to put the downloaded toolchain
     make_temp_dir
@@ -853,6 +873,57 @@ remove_toolchain() {
         say "toolchain '$_toolchain' uninstalled"
     else
         say "no toolchain installed at '$_prefix'"
+    fi
+}
+
+add_target_to_install() {
+    local _prefix="$1"
+    local _target="$2"
+    local _save="$3"
+    local _disable_sudo="$4"
+
+    local _manifest_file="$_prefix/lib/rustlib/channel-manifest.toml"
+
+    if [ ! -e "$_manifest_file" ]; then
+	say_err "no channel manifest at '$_manifest_file'"
+	return 1
+    fi
+
+    local _manifest="$(cat "$_manifest_file")"
+
+    determine_remote_std_locations_v2 "$_manifest" "$_target" || return 1
+    local _url="$RETVAL"
+
+    # NB: No quotes around $url - it's a space-separated list with one element. Removing
+    # the quotes to get rid of an extra space
+    install_extra_component "$_prefix" $_url "$_disable_sudo" "$_save"
+}
+
+install_extra_component() {
+    local _prefix="$1"
+    local _url="$2"
+    local _disable_sudo="$3"
+    local _save="$4"
+
+    say "downloading extra component from $_url"
+    download_and_check "$_url" false ""
+    # Don't need to check for the second success value since
+    # we didn't pass an update hash file to download_and_check
+    if [ $? != 0 ]; then
+        return 1
+    fi
+    local _extra_installer_file="$RETVAL"
+    local _extra_installer_cache="$RETVAL_CACHE"
+    assert_nz "$_extra_installer_file" "extra_installer_file"
+    assert_nz "$_extra_installer_cache" "extra_installer_cache"
+
+    say "installing extra component from $_extra_installer_file"
+
+    install_toolchain "$_extra_installer_file" "$_prefix" \
+                      "$_disable_ldconfig" "$_disable_sudo" "$_extra_installer_cache" "$_save"
+    if [ $? != 0 ]; then
+        say_err "failed to install component"
+        return 1
     fi
 }
 
@@ -1664,6 +1735,7 @@ Options:
      --prefix=<path>                   Install to a specific location (default /usr/local)
      --uninstall                       Uninstall instead of install
      --with-target=<triple>            Also install the standard library for the given target
+     --add-target=<triple>             Updates an existing installation with a new target
      --disable-ldconfig                Do not run ldconfig on Linux
      --disable-sudo                    Do not run installer under sudo
      --save                            Save downloads for future reuse

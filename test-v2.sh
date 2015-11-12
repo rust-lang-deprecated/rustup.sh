@@ -929,6 +929,13 @@ explicit_version_with_target() {
 }
 runtest explicit_version_with_target
 
+add_target() {
+    try run_rustup --prefix="$TEST_PREFIX" --spec=nightly
+    try run_rustup --prefix="$TEST_PREFIX" --add-target="$CROSS_ARCH1"
+    try test -e "$TEST_PREFIX/lib/rustlib/$CROSS_ARCH1/lib/libstd.rlib"
+}
+runtest add_target
+
 echo
 echo "SUCCESS"
 echo
