@@ -569,6 +569,7 @@ build_mock_channel() {
     build_mock_rust_docs_installer "$_package"
     build_mock_combined_installer "$_package"
     build_mock_channel_manifest "$_channel" "$_date" "$_version"
+    build_mock_channel_manifest "$_version" "$_date" "$_version"
     build_mock_sums_and_sigs "$MOCK_BUILD_DIR/dist"
 
     mkdir -p "$MOCK_DIST_DIR/dist/$_date"
@@ -870,6 +871,14 @@ with_multiple_target() {
 }
 runtest with_multiple_target
 
+with_multiple_target2() {
+    try run_rustup --prefix="$TEST_PREFIX" --spec=nightly \
+        --with-target="$CROSS_ARCH1,$CROSS_ARCH2" \
+    try test -e "$TEST_PREFIX/lib/rustlib/$CROSS_ARCH1/lib/libstd.rlib"
+    try test -e "$TEST_PREFIX/lib/rustlib/$CROSS_ARCH2/lib/libstd.rlib"
+}
+runtest with_multiple_target2
+
 with_bogus_target() {
     expect_output_fail "unable to find package url for std, for bogus" run_rustup --prefix="$TEST_PREFIX" --spec=nightly --with-target=bogus
 }
@@ -890,9 +899,16 @@ runtest with_host_target
 with_host_in_multiple_targets() {
     get_architecture
     local _arch="$RETVAL"
-    try run_rustup --prefix="$TEST_PREFIX" --spec=nightly --with-target="$_arch,$CROSS_ARCH1"
+    try run_rustup --prefix="$TEST_PREFIX" --spec=nightly --with-target="$_arch" --with-target="$CROSS_ARCH1"
 }
 runtest with_host_in_multiple_targets
+
+with_host_in_multiple_targets2() {
+    get_architecture
+    local _arch="$RETVAL"
+    try run_rustup --prefix="$TEST_PREFIX" --spec=nightly --with-target="$_arch,$CROSS_ARCH1"
+}
+runtest with_host_in_multiple_targets2
 
 update_with_extra_targets() {
     # Expect that additional stds get updated when updating an existing installation
@@ -908,9 +924,8 @@ update_with_extra_targets() {
 runtest update_with_extra_targets
 
 explicit_version_with_target() {
-    try run_rustup --prefix="$TEST_PREFIX" --revision=1.0.0
-    try test -e "$TEST_PREFIX/bin/rustc"
-    return 1
+    try run_rustup --prefix="$TEST_PREFIX" --revision=1.0.0 --with-target="$CROSS_ARCH1"
+    try test -e "$TEST_PREFIX/lib/rustlib/$CROSS_ARCH1/lib/libstd.rlib"
 }
 runtest explicit_version_with_target
 

@@ -1664,7 +1664,6 @@ Options:
      --prefix=<path>                   Install to a specific location (default /usr/local)
      --uninstall                       Uninstall instead of install
      --with-target=<triple>            Also install the standard library for the given target
-                                       (this option may be provided multiple times)
      --disable-ldconfig                Do not run ldconfig on Linux
      --disable-sudo                    Do not run installer under sudo
      --save                            Save downloads for future reuse
