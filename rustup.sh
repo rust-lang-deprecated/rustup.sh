@@ -302,6 +302,7 @@ handle_command_line_args() {
     local _disable_sudo=false
     local _extra_targets=""
     local _add_target=""
+    local _list_targets=false
 
     local _arg
     for _arg in "$@"; do
@@ -333,6 +334,10 @@ handle_command_line_args() {
                 # yes is a global flag
                 flag_yes=true
                 ;;
+
+	    --list-available-targets)
+		_list_targets=true
+		;;
 
             --version)
                 echo "rustup.sh $version"
@@ -406,6 +411,21 @@ handle_command_line_args() {
         fi
     fi
 
+    if [ "$_list_targets" = true ]; then
+        if [ -n "$_channel" ]; then
+            err "the --list-available-targets flag may not be combined with --channel"
+        fi
+        if [ -n "$_date" ]; then
+            err "the --list-available-targets flag may not be combined with --date"
+        fi
+        if [ -n "$_spec" ]; then
+            err "the --list-available-targets flag may not be combined with --spec"
+        fi
+        if [ -n "$_revision" ]; then
+            err "the --list-available-targets flag may not be combined with --revision"
+        fi
+    fi
+    
     if [ -z "$_channel" -a -z "$_revision" -a -z "$_spec" ]; then
         _channel="$default_channel"
     fi
@@ -427,6 +447,10 @@ handle_command_line_args() {
     assert_nz "$_toolchain" "toolchain"
 
     # --add-target is non-interactive
+    if [ -n "$_add_target" ]; then
+	flag_yes=true
+    fi
+    # --list-targets is non-interactive
     if [ -n "$_add_target" ]; then
 	flag_yes=true
     fi
@@ -456,7 +480,12 @@ handle_command_line_args() {
 
     # OK, time to do the things
     local _succeeded=true
-    if [ -n "$_add_target" ]; then
+    if [ "$_list_targets" = true ]; then
+	list_targets "$_prefix"
+	if [ $? != 0 ]; then
+	    _succeeded=false
+	fi
+    elif [ -n "$_add_target" ]; then
 	add_target_to_install "$_prefix" "$_add_target" "$_save" "$_disable_sudo"
 	if [ $? != 0 ]; then
 	    _succeeded=false
@@ -899,6 +928,32 @@ add_target_to_install() {
     install_extra_component "$_prefix" $_url "$_disable_sudo" "$_save"
 }
 
+list_targets() {
+    local _prefix="$1"
+
+    local _manifest_file="$_prefix/lib/rustlib/channel-manifest.toml"
+
+    if [ ! -e "$_manifest_file" ]; then
+	say_err "no channel manifest at '$_manifest_file'"
+	return 1
+    fi
+
+    local _manifest="$(cat "$_manifest_file")"
+
+    toml_find_package_triples  "$_manifest" rust-std
+    if [ $? != 0 ]; then
+	say_err "error searching manifest for targets"
+	return 1
+    fi
+    local _all_stds="$RETVAL"
+
+    # NB: Not quoting to split on space
+    local _std
+    for _std in $_all_stds; do
+	printf "%s\n" "$_std"
+    done
+}
+
 install_extra_component() {
     local _prefix="$1"
     local _url="$2"
@@ -1085,6 +1140,35 @@ toml_find_package_url() {
     RETVAL="$_url"
 }
 
+toml_find_package_triples() {
+    local _manifest="$1"
+    local _package="$2"
+    
+    make_temp_dir
+    local _workdir="$RETVAL"
+    assert_nz "$_workdir" "workdir"
+
+    local _tmpfile="$_workdir/manifest"
+    ensure printf "%s\n" "$_manifest" > "$_tmpfile"
+
+    local _triples=""
+    local _line
+    while read _line; do
+	case "$_line" in
+	    *"[$_package".*"]"*)
+		verbose_say "found $_package in manifest"
+		local _triple="$(ensure printf "%s" "$_line" | ensure sed "s/.*$_package\.\(.*\)]/\1/")"
+		verbose_say "triple: $_triple"
+		_triples="$_triples $_triple"
+	    ;;
+	esac
+    done < "$_tmpfile"
+
+    ensure rm -R "$_workdir"
+
+    RETVAL="$_triples"
+}
+
 toml_find_manifest_version() {
     local _manifest="$1"
 
@@ -1093,7 +1177,7 @@ toml_find_manifest_version() {
     assert_nz "$_workdir" "workdir"
 
     local _tmpfile="$_workdir/manifest"
-    ensure printf "%s" "$_manifest" > "$_tmpfile"
+    ensure printf "%s\n" "$_manifest" > "$_tmpfile"
 
     local _manifest_version=""
     local _line
@@ -1736,6 +1820,7 @@ Options:
      --uninstall                       Uninstall instead of install
      --with-target=<triple>            Also install the standard library for the given target
      --add-target=<triple>             Updates an existing installation with a new target
+     --list-available-targets          Lists targets available to an existing installation
      --disable-ldconfig                Do not run ldconfig on Linux
      --disable-sudo                    Do not run installer under sudo
      --save                            Save downloads for future reuse

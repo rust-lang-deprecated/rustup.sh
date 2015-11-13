@@ -936,6 +936,13 @@ add_target() {
 }
 runtest add_target
 
+list_targets() {
+    try run_rustup --prefix="$TEST_PREFIX" --spec=nightly
+    expect_output_ok "$CROSS_ARCH1" run_rustup --prefix="$TEST_PREFIX" --list-available-targets
+    expect_output_ok "$CROSS_ARCH2" run_rustup --prefix="$TEST_PREFIX" --list-available-targets
+}
+runtest list_targets
+
 echo
 echo "SUCCESS"
 echo
