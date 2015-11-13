@@ -490,13 +490,13 @@ build_mock_channel_manifest() {
     get_architecture
     local _arch="$RETVAL"
 
-    local _rust_tarball=`frob_win_path "file://$MOCK_DIST_DIR/dist/$_date/rust-$_package-$_arch.tar.gz"`
-    local _rustc_tarball=`frob_win_path "file://$MOCK_DIST_DIR/dist/$_date/rustc-$_package-$_arch.tar.gz"`
-    local _cargo_tarball=`frob_win_path "file://$MOCK_DIST_DIR/dist/$_date/cargo-$_package-$_arch.tar.gz"`
-    local _std_tarball=`frob_win_path "file://$MOCK_DIST_DIR/dist/$_date/rust-std-$_package-$_arch.tar.gz"`
-    local _cross_std_tarball1=`frob_win_path "file://$MOCK_DIST_DIR/dist/$_date/rust-std-$_package-$CROSS_ARCH1.tar.gz"`
-    local _cross_std_tarball2=`frob_win_path "file://$MOCK_DIST_DIR/dist/$_date/rust-std-$_package-$CROSS_ARCH2.tar.gz"`
-    local _docs_tarball=`frob_win_path "file://$MOCK_DIST_DIR/dist/$_date/rust-docs-$_package-$_arch.tar.gz"`
+    local _rust_tarball="$(frob_win_path "file://$MOCK_DIST_DIR/dist/$_date/rust-$_package-$_arch.tar.gz")"
+    local _rustc_tarball="$(frob_win_path "file://$MOCK_DIST_DIR/dist/$_date/rustc-$_package-$_arch.tar.gz")"
+    local _cargo_tarball="$(frob_win_path "file://$MOCK_DIST_DIR/dist/$_date/cargo-$_package-$_arch.tar.gz")"
+    local _std_tarball="$(frob_win_path "file://$MOCK_DIST_DIR/dist/$_date/rust-std-$_package-$_arch.tar.gz")"
+    local _cross_std_tarball1="$(frob_win_path "file://$MOCK_DIST_DIR/dist/$_date/rust-std-$_package-$CROSS_ARCH1.tar.gz")"
+    local _cross_std_tarball2="$(frob_win_path "file://$MOCK_DIST_DIR/dist/$_date/rust-std-$_package-$CROSS_ARCH2.tar.gz")"
+    local _docs_tarball="$(frob_win_path "file://$MOCK_DIST_DIR/dist/$_date/rust-docs-$_package-$_arch.tar.gz")"
 
     local _manifest="$MOCK_BUILD_DIR/dist/channel-rust-$_channel.toml"
 
@@ -606,6 +606,7 @@ frob_win_path() {
         printf '%s' "$_path" | sed s~file:///c/~file://c:/~
         ;;
     *)
+	printf '%s' "$_path"
         ;;
     esac
 }
@@ -620,7 +621,7 @@ export RUSTUP_GPG_KEY
 
 # Tell rustup where to download stuff from
 RUSTUP_DIST_SERVER="file://$(abs_path "$MOCK_DIST_DIR")"
-RUSTUP_DIST_SERVER=`frob_win_path "$RUSTUP_DIST_SERVER"`
+RUSTUP_DIST_SERVER="$(frob_win_path "$RUSTUP_DIST_SERVER")"
 
 export RUSTUP_DIST_SERVER
 

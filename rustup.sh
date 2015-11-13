@@ -989,6 +989,8 @@ install_extra_component() {
 download_rust_manifest_v2() {
     local _toolchain="$1"
 
+    verbose_say "dist_server: $dist_server"
+
     case "$_toolchain" in
         nightly | beta | stable )
             local _remote_rust_manifest="$dist_server/$rust_dist_dir/channel-rust-$_toolchain.toml"
@@ -1014,7 +1016,8 @@ download_rust_manifest_v2() {
     local _manifest_file="$RETVAL"
     local _manifest_cache="$RETVAL_CACHE"
 
-    local _manifest=`cat "$_manifest_file"`
+    local _manifest="$(cat "$_manifest_file")"
+
     if [ $? != 0 ]; then
         say_err "unable to load manifest from disk"
         run rm -R "$_manifest_cache"
@@ -1122,7 +1125,7 @@ toml_find_package_url() {
              # Then find the url
              *url*=*)
                 if [ "$_found_package" = true -a "$_found_url" = false ]; then
-                    _url=`ensure printf "%s" "$_line" | ensure sed 's/.*url.*\"\(.*\)\".*/\1/'`
+                    _url="$(ensure printf "%s" "$_line" | ensure sed 's/.*url.*\"\(.*\)\".*/\1/')"
                     assert_nz "$_url" "url is empty!"
                     verbose_say "url: $_url"
                     _found_url=true
@@ -1184,7 +1187,7 @@ toml_find_manifest_version() {
     while read _line; do
         case "$_line" in
              *manifest-version*=*)
-                _manifest_version=`ensure printf "%s" "$_line" | ensure sed 's/.*manifest-version.*\"\(.*\)\".*/\1/'`
+                _manifest_version="$(ensure printf "%s" "$_line" | ensure sed 's/.*manifest-version.*\"\(.*\)\".*/\1/')"
                 assert_nz "$_manifest_version" "manifest_version is empty!"
                 verbose_say "manifest-version: $_manifest_version"
                 ;;
