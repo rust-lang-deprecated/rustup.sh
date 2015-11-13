@@ -1113,7 +1113,7 @@ toml_find_package_url() {
     while read _line; do
         case "$_line" in
             # First look for the package header
-            *"[$_package.$_arch]"*)
+            *"[pkg.$_package.target.$_arch]"*)
                 verbose_say "found $_package.$_arch section in manifest"
                 if [ "$_found_package" = true ]; then err "found package twice"; fi
                 _found_package=true
@@ -1155,9 +1155,9 @@ toml_find_package_triples() {
     local _line
     while read _line; do
 	case "$_line" in
-	    *"[$_package".*"]"*)
+	    *"[pkg.$_package.target".*"]"*)
 		verbose_say "found $_package in manifest"
-		local _triple="$(ensure printf "%s" "$_line" | ensure sed "s/.*$_package\.\(.*\)]/\1/")"
+		local _triple="$(ensure printf "%s" "$_line" | ensure sed "s/.*pkg\.$_package\.target\.\(.*\)]/\1/")"
 		verbose_say "triple: $_triple"
 		_triples="$_triples $_triple"
 	    ;;
