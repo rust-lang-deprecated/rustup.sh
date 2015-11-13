@@ -458,28 +458,26 @@ build_mock_combined_installer() {
 build_mock_sums_and_sigs() {
     local _dir="$1"
 
-    if command -v gpg > /dev/null 2>&1; then
-        (cd "$_dir" && for i in *; do
-            if [ ! -d "$i" ]; then
-                build_sum_and_sig "$i"
-            fi
-        done)
-    else
-        say "gpg not found. not testing signature verification"
-        (cd "$_dir" && for i in *; do
-            echo "nosig" > "$i.asc"
-            shasum -a256 "$i" > "$i.sha256"
-        done)
-    fi
+    (cd "$_dir" && for i in *; do
+        if [ ! -d "$i" ]; then
+            build_sum_and_sig "$i"
+        fi
+    done)
 }
 
 build_sum_and_sig() {
     local _file="$1"
 
-    gpg --no-default-keyring --secret-keyring "$TEST_SECRET_KEY" \
-        --keyring "$TEST_PUBLIC_KEY" \
-        --no-tty --yes -a --detach-sign "$_file"
-    shasum -a256 "$_file" > "$_file.sha256"
+    if command -v gpg > /dev/null 2>&1; then
+	gpg --no-default-keyring --secret-keyring "$TEST_SECRET_KEY" \
+            --keyring "$TEST_PUBLIC_KEY" \
+            --no-tty --yes -a --detach-sign "$_file"
+	shasum -a256 "$_file" > "$_file.sha256"
+    else
+	say "gpg not found. not testing signature verification"
+        echo "nosig" > "$_file.asc"
+        shasum -a256 "$_file" > "$_file.sha256"
+    fi
 }
 
 build_mock_channel_manifest() {
