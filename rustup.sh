@@ -1097,7 +1097,7 @@ toml_find_package_url() {
     local _package="$2"
     local _arch="$3"
 
-    verbose_say "looking for $_package.$_arch in manifest"
+    verbose_say "looking for pkg.$_package.target.$_arch in manifest"
 
     make_temp_dir
     local _workdir="$RETVAL"
@@ -1186,8 +1186,8 @@ toml_find_manifest_version() {
     local _line
     while read _line; do
         case "$_line" in
-             *manifest-version*=*)
-                _manifest_version="$(ensure printf "%s" "$_line" | ensure sed 's/.*manifest-version.*\"\(.*\)\".*/\1/')"
+             *manifest_version*=*)
+                _manifest_version="$(ensure printf "%s" "$_line" | ensure sed 's/.*manifest_version.*\"\(.*\)\".*/\1/')"
                 assert_nz "$_manifest_version" "manifest_version is empty!"
                 verbose_say "manifest-version: $_manifest_version"
                 ;;
