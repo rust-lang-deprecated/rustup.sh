@@ -1800,7 +1800,18 @@ maybe_sudo() {
 
     shift
 
-    if [ "$_disable_sudo" = false ]; then
+    get_architecture || return 1
+    local _arch="$RETVAL"
+    assert_nz "$_arch" "arch"
+
+    local _is_windows=false
+    case "$_arch" in
+	*windows*)
+	    _is_windows=true
+	    ;;
+    esac
+
+    if [ "$_disable_sudo" = false -a "$_is_windows" = false ]; then
         run sudo "$@"
     else
         run "$@"
