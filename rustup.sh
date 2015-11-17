@@ -451,7 +451,7 @@ handle_command_line_args() {
 	flag_yes=true
     fi
     # --list-targets is non-interactive
-    if [ -n "$_add_target" ]; then
+    if [ -n "$_list_targets" ]; then
 	flag_yes=true
     fi
 
