@@ -1186,8 +1186,8 @@ toml_find_manifest_version() {
     local _line
     while read _line; do
         case "$_line" in
-             *manifest_version*=*)
-                _manifest_version="$(ensure printf "%s" "$_line" | ensure sed 's/.*manifest_version.*\"\(.*\)\".*/\1/')"
+             *manifest-version*=*)
+                _manifest_version="$(ensure printf "%s" "$_line" | ensure sed 's/.*manifest-version.*\"\(.*\)\".*/\1/')"
                 assert_nz "$_manifest_version" "manifest_version is empty!"
                 verbose_say "manifest-version: $_manifest_version"
                 ;;
