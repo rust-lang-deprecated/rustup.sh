@@ -1017,6 +1017,13 @@ get_architecture() {
 	if [ ! -e "$_bin_to_probe" -a -e "/usr/bin/env" ]; then
 	    _bin_to_probe="/usr/bin/env"
 	fi
+	# $SHELL may be not a binary
+	if [ -e "$_bin_to_probe" ]; then
+	    file -L "$_bin_to_probe" | grep -q "text"
+	    if [ $? == 0 ]; then
+		_bin_to_probe="/usr/bin/env"
+	    fi
+	fi
 	if [ -e "$_bin_to_probe" ]; then
 	    file -L "$_bin_to_probe" | grep -q "x86[_-]64"
 	    if [ $? != 0 ]; then
