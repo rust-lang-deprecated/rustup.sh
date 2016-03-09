@@ -1509,7 +1509,7 @@ get_architecture() {
         # $SHELL may be not a binary
         if [ -e "$_bin_to_probe" ]; then
             file -L "$_bin_to_probe" | grep -q "text"
-            if [ $? == 0 ]; then
+            if [ $? = 0 ]; then
                 _bin_to_probe="/usr/bin/env"
             fi
         fi
