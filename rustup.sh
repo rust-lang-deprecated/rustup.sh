@@ -764,6 +764,12 @@ install_toolchain_from_dist() {
 
     # Install the manifest for future updates
     if [ "$_manifest_to_stash" != "" ]; then
+	# Fix for rust-lang/rust#32154. Somehow rustup.sh managed
+	# until today to exist without escaping ~ in prefix. Probably
+	# because it's only ultimately used by the install script,
+	# which is called via sh. This command here though will fail
+	# if prefix contains ~ so run it through `sh` to escape it.
+	local _prefix="$(sh -c "printf '%s' $_prefix")"
 	ensure printf "%s" "$_manifest_to_stash" > "$_prefix/lib/rustlib/channel-manifest.toml"
     fi
 }
