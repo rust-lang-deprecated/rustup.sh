@@ -770,7 +770,9 @@ install_toolchain_from_dist() {
 	# which is called via sh. This command here though will fail
 	# if prefix contains ~ so run it through `sh` to escape it.
 	local _prefix="$(sh -c "printf '%s' $_prefix")"
-	ensure printf "%s" "$_manifest_to_stash" > "$_prefix/lib/rustlib/channel-manifest.toml"
+	local _manifest_stash="$_prefix/lib/rustlib/channel-manifest.toml"
+	ensure printf "%s" "$_manifest_to_stash" | \
+	    ensure maybe_sudo "$_disable_sudo" sh -c "cat > \"$_manifest_stash\""
     fi
 }
 
