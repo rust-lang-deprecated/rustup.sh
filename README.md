@@ -1,8 +1,8 @@
 [![Build Status](https://travis-ci.org/rust-lang/rustup.svg?branch=master)](https://travis-ci.org/rust-lang/rustup)
 
-The rustup.sh script installs Rust from the Rust release channels.
+The `rustup.sh` script installs Rust from the Rust release channels. It is most often run as a copy of the file alone.
 
-This script is most often run directly from the web.
+**Note**: `rustup.sh` will be replaced by [`rustup.rs`](https://github.com/rust-lang-nursery/rustup.rs).
 
 ```
 curl -sf https://static.rust-lang.org/rustup.sh | sudo sh
