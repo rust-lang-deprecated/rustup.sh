@@ -1,3 +1,7 @@
+
+### You're probably looking for [rustup.rs](https://github.com/rust-lang-nursery/rustup.rs) if you arrived from Google
+Despite being in rust-lang-nursery org, [rustup.rs](https://github.com/rust-lang-nursery/rustup.rs)  is now the default rustup. 
+
 [![Build Status](https://travis-ci.org/rust-lang/rustup.svg?branch=master)](https://travis-ci.org/rust-lang/rustup)
 
 The `rustup.sh` script installs Rust from the Rust release channels. It is most often run as a copy of the file alone.
