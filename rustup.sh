@@ -310,9 +310,11 @@ handle_command_line_args() {
             --save )
                 _save=true
                 ;;
+
             --uninstall )
                 _uninstall=true
                 ;;
+
             -h | --help )
                 _help=true
                 ;;
@@ -335,9 +337,9 @@ handle_command_line_args() {
                 flag_yes=true
                 ;;
 
-	    --list-available-targets)
-		_list_targets=true
-		;;
+            --list-available-targets)
+                _list_targets=true
+                ;;
 
             --version)
                 echo "rustup.sh $version"
@@ -485,11 +487,11 @@ handle_command_line_args() {
 
     # --add-target is non-interactive
     if [ -n "$_add_target" ]; then
-	flag_yes=true
+        flag_yes=true
     fi
     # --list-targets is non-interactive
     if [ -n "$_list_targets" ]; then
-	flag_yes=true
+        flag_yes=true
     fi
 
     if [ "$flag_yes" = false ]; then
@@ -518,15 +520,15 @@ handle_command_line_args() {
     # OK, time to do the things
     local _succeeded=true
     if [ "$_list_targets" = true ]; then
-	list_targets "$_prefix"
-	if [ $? != 0 ]; then
-	    _succeeded=false
-	fi
+        list_targets "$_prefix"
+        if [ $? != 0 ]; then
+            _succeeded=false
+        fi
     elif [ -n "$_add_target" ]; then
-	add_target_to_install "$_prefix" "$_add_target" "$_save" "$_disable_sudo"
-	if [ $? != 0 ]; then
-	    _succeeded=false
-	fi
+        add_target_to_install "$_prefix" "$_add_target" "$_save" "$_disable_sudo"
+        if [ $? != 0 ]; then
+            _succeeded=false
+        fi
     elif [ "$_uninstall" = false ]; then
         install_toolchain_from_dist "$_toolchain" "$_prefix" "$_save" "$_update_hash_file" \
                                     "$_disable_ldconfig" "$_disable_sudo" "$_extra_targets"
@@ -709,8 +711,8 @@ install_toolchain_from_dist() {
         local _manifest="$RETVAL"
         assert_nz "$_manifest" "manifest"
 
-	# We'll save the manifest in the install folder for future modifications
-	_manifest_to_stash="$_manifest"
+        # We'll save the manifest in the install folder for future modifications
+        _manifest_to_stash="$_manifest"
 
         validate_manifest_v2 "$_manifest"
         if [ $? != 0 ]; then
@@ -786,7 +788,7 @@ install_toolchain_from_dist() {
     # NB: Splitting $_extra_remote_installers on space by not quoting
     local _extra_remote_installer
     for _extra_remote_installer in $_extra_remote_installers; do
-	install_extra_component "$_prefix" "$_extra_remote_installer" "$_disable_sudo" "$_save"
+        install_extra_component "$_prefix" "$_extra_remote_installer" "$_disable_sudo" "$_save"
     done
 
     # Write the update hash of the rust toolchain to file so that,
@@ -801,15 +803,15 @@ install_toolchain_from_dist() {
 
     # Install the manifest for future updates
     if [ "$_manifest_to_stash" != "" ]; then
-	# Fix for rust-lang/rust#32154. Somehow rustup.sh managed
-	# until today to exist without escaping ~ in prefix. Probably
-	# because it's only ultimately used by the install script,
-	# which is called via sh. This command here though will fail
-	# if prefix contains ~ so run it through `sh` to escape it.
-	local _prefix="$(sh -c "printf '%s' $_prefix")"
-	local _manifest_stash="$_prefix/lib/rustlib/channel-manifest.toml"
-	ensure printf "%s" "$_manifest_to_stash" | \
-	    ensure maybe_sudo "$_disable_sudo" sh -c "cat > \"$_manifest_stash\""
+        # Fix for rust-lang/rust#32154. Somehow rustup.sh managed
+        # until today to exist without escaping ~ in prefix. Probably
+        # because it's only ultimately used by the install script,
+        # which is called via sh. This command here though will fail
+        # if prefix contains ~ so run it through `sh` to escape it.
+        local _prefix="$(sh -c "printf '%s' $_prefix")"
+        local _manifest_stash="$_prefix/lib/rustlib/channel-manifest.toml"
+        ensure printf "%s" "$_manifest_to_stash" | \
+            ensure maybe_sudo "$_disable_sudo" sh -c "cat > \"$_manifest_stash\""
     fi
 }
 
@@ -836,19 +838,19 @@ merge_existing_extra_targets() {
                 ignore printf "%s" "$_extra_targets" | grep -q "$_arch"
                 if [ $? = 0 ]; then
                     verbose_say "already installing extra std component: $_arch"
-		else
-		    # See if it's the primary target
-		    ignore printf "%s" "$_primary_arch" | grep -q "$_arch"
-		    if [ $? = 0 ]; then
-			verbose_say "already installing extra std component: $_arch"
-		    else
-			verbose_say "found extra std component: $_arch"
-			_extra_targets="$_extra_targets $_arch"
-		    fi
+                else
+                    # See if it's the primary target
+                    ignore printf "%s" "$_primary_arch" | grep -q "$_arch"
+                    if [ $? = 0 ]; then
+                        verbose_say "already installing extra std component: $_arch"
+                    else
+                        verbose_say "found extra std component: $_arch"
+                        _extra_targets="$_extra_targets $_arch"
+                    fi
                 fi
-		;;
+                ;;
             *)
-		;;
+                ;;
         esac
     done < "$_components_file"
 
@@ -959,8 +961,8 @@ add_target_to_install() {
     local _manifest_file="$_prefix/lib/rustlib/channel-manifest.toml"
 
     if [ ! -e "$_manifest_file" ]; then
-	say_err "no channel manifest at '$_manifest_file'"
-	return 1
+        say_err "no channel manifest at '$_manifest_file'"
+        return 1
     fi
 
     local _manifest="$(cat "$_manifest_file")"
@@ -979,23 +981,23 @@ list_targets() {
     local _manifest_file="$_prefix/lib/rustlib/channel-manifest.toml"
 
     if [ ! -e "$_manifest_file" ]; then
-	say_err "no channel manifest at '$_manifest_file'"
-	return 1
+        say_err "no channel manifest at '$_manifest_file'"
+        return 1
     fi
 
     local _manifest="$(cat "$_manifest_file")"
 
     toml_find_package_triples  "$_manifest" rust-std
     if [ $? != 0 ]; then
-	say_err "error searching manifest for targets"
-	return 1
+        say_err "error searching manifest for targets"
+        return 1
     fi
     local _all_stds="$RETVAL"
 
     # NB: Not quoting to split on space
     local _std
     for _std in $_all_stds; do
-	printf "%s\n" "$_std"
+        printf "%s\n" "$_std"
     done
 }
 
@@ -1202,14 +1204,14 @@ toml_find_package_triples() {
     local _triples=""
     local _line
     while read _line; do
-	case "$_line" in
-	    *"[pkg.$_package.target".*"]"*)
-		verbose_say "found $_package in manifest"
-		local _triple="$(ensure printf "%s" "$_line" | ensure sed "s/.*pkg\.$_package\.target\.\(.*\)]/\1/")"
-		verbose_say "triple: $_triple"
-		_triples="$_triples $_triple"
-	    ;;
-	esac
+        case "$_line" in
+            *"[pkg.$_package.target".*"]"*)
+                verbose_say "found $_package in manifest"
+                local _triple="$(ensure printf "%s" "$_line" | ensure sed "s/.*pkg\.$_package\.target\.\(.*\)]/\1/")"
+                verbose_say "triple: $_triple"
+                _triples="$_triples $_triple"
+            ;;
+        esac
     done < "$_tmpfile"
 
     ensure rm -R "$_workdir"
@@ -1856,9 +1858,9 @@ maybe_sudo() {
 
     local _is_windows=false
     case "$_arch" in
-	*windows*)
-	    _is_windows=true
-	    ;;
+        *windows*)
+            _is_windows=true
+            ;;
     esac
 
     if [ "$_disable_sudo" = false -a "$_is_windows" = false ]; then
