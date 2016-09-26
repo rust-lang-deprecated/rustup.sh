@@ -313,7 +313,7 @@ handle_command_line_args() {
             --uninstall )
                 _uninstall=true
                 ;;
-            --help )
+            -h | --help )
                 _help=true
                 ;;
 
@@ -343,6 +343,11 @@ handle_command_line_args() {
                 echo "rustup.sh $version"
                 exit 0
                 ;;
+
+	    *)
+		echo "Unknown argument $_arg, displaying usage:"
+		_help=true
+		;;
 
         esac
 
