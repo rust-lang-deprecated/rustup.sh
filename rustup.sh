@@ -1857,6 +1857,7 @@ Options:
      --disable-sudo                    Do not run installer under sudo
      --save                            Save downloads for future reuse
      --yes, -y                         Disable the interactive mode
+     --help, -h                        Display usage information
 '
 }
 
