@@ -306,7 +306,7 @@ handle_command_line_args() {
 
     local _arg
     for _arg in "$@"; do
-        case "$_arg" in
+        case "${_arg%%=*}" in
             --save )
                 _save=true
                 ;;
@@ -344,34 +344,66 @@ handle_command_line_args() {
                 exit 0
                 ;;
 
-	    *)
-		echo "Unknown argument $_arg, displaying usage:"
-		_help=true
-		;;
+            --prefix)
+                if is_value_arg "$_arg" "prefix"; then
+                    _prefix="$(get_value_arg "$_arg")"
+                fi
+                ;;
+
+            --channel)
+                if is_value_arg "$_arg" "channel"; then
+                  _channel="$(get_value_arg "$_arg")"
+                fi
+                ;;
+
+            --date)
+                if is_value_arg "$_arg" "date"; then
+                  _date="$(get_value_arg "$_arg")"
+                fi
+                ;;
+
+            --revision)
+                if is_value_arg "$_arg" "revision"; then
+                  _revision="$(get_value_arg "$_arg")"
+                fi
+                ;;
+
+            --spec)
+                if is_value_arg "$_arg" "spec"; then
+                  _spec="$(get_value_arg "$_arg")"
+                fi
+                ;;
+
+            --update-hash-file)
+                if is_value_arg "$_arg" "update-hash-file"; then
+                  # This option is used by multirust to short-circuit reinstalls
+                  # when the channel has not been updated by examining a content
+                  # hash in the update-hash-file
+                  _update_hash_file="$(get_value_arg "$_arg")"
+                fi
+                ;;
+
+            --with-target)
+                if is_value_arg "$_arg" "with-target"; then
+                  local _next_extra_target="$(get_value_arg "$_arg")"
+                  _extra_targets="$_extra_targets $_next_extra_target"
+                fi
+                ;;
+
+            --add-target)
+                if is_value_arg "$_arg" "add-target"; then
+                    _add_target="$(get_value_arg "$_arg")"
+                fi
+                ;;
+
+            *)
+                echo "Unknown argument '$_arg', displaying usage:"
+                echo ${_arg%%=*}
+                _help=true
+                ;;
 
         esac
 
-        if is_value_arg "$_arg" "prefix"; then
-            _prefix="$(get_value_arg "$_arg")"
-        elif is_value_arg "$_arg" "channel"; then
-            _channel="$(get_value_arg "$_arg")"
-        elif is_value_arg "$_arg" "date"; then
-            _date="$(get_value_arg "$_arg")"
-        elif is_value_arg "$_arg" "revision"; then
-            _revision="$(get_value_arg "$_arg")"
-        elif is_value_arg "$_arg" "spec"; then
-            _spec="$(get_value_arg "$_arg")"
-        elif is_value_arg "$_arg" "update-hash-file"; then
-            # This option is used by multirust to short-circuit reinstalls
-            # when the channel has not been updated by examining a content
-            # hash in the update-hash-file
-            _update_hash_file="$(get_value_arg "$_arg")"
-        elif is_value_arg "$_arg" "with-target"; then
-            local _next_extra_target="$(get_value_arg "$_arg")"
-            _extra_targets="$_extra_targets $_next_extra_target"
-	elif is_value_arg "$_arg" "add-target"; then
-	    _add_target="$(get_value_arg "$_arg")"
-        fi
     done
 
     if [ "$_help" = true ]; then
