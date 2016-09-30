@@ -1,10 +1,10 @@
 # Use something that's not 'ruby' so we don't set up things like
 # RVM/bundler/ruby and whatnot.
 language: c
-sudo: false
+sudo: true
 
 script:
-  - ./test.sh
+  - sudo ./test.sh
 
 branches:
   only:
