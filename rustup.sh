@@ -95,7 +95,7 @@ set_globals() {
     default_channel="stable"
 
     # Set up the rustup data dir
-    rustup_dir="${RUSTUP_HOME-$HOME/.rustup}"
+    rustup_dir="${RUSTUP_HOME-$HOME/.rustup.sh}"
     assert_nz "$rustup_dir" "rustup_dir"
 
     # Install prefix can be set by the environment
@@ -217,7 +217,7 @@ Mve696B5tlHyc1KxjHR6w9GRsh4=
     fi
 }
 
-# Ensuresthat ~/.rustup exists and uses the correct format
+# Ensuresthat ~/.rustup.sh exists and uses the correct format
 initialize_metadata() {
     local _disable_sudo="$1"
 
@@ -236,9 +236,9 @@ initialize_metadata() {
     fi
 
     # Oh, my. We used to encourage people running this script as root,
-    # and that resulted in users' ~/.rustup directories being owned by
+    # and that resulted in users' ~/.rustup.sh directories being owned by
     # root (running `sudo sh` doesn't change $HOME apparently). Now
-    # that we're not running as root, we can't touch our ~/.rustup
+    # that we're not running as root, we can't touch our ~/.rustup.sh
     # directory. Try to fix that.
     if [ -e "$version_file" ]; then
         local _can_write=true
@@ -507,8 +507,8 @@ handle_command_line_args() {
         get_tty_confirmation
     fi
 
-    # All work is done in the ~/.rustup dir, which will be deleted
-    # afterward if the user doesn't pass --save. *If* ~/.rustup
+    # All work is done in the ~/.rustup.sh dir, which will be deleted
+    # afterward if the user doesn't pass --save. *If* ~/.rustup.sh
     # already exists and they *did not* pass --save, we'll pretend
     # they did anyway to avoid deleting their data.
     local _preserve_rustup_dir="$_save"
